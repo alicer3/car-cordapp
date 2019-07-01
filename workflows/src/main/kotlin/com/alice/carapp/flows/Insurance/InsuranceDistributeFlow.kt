@@ -5,6 +5,7 @@ import com.alice.carapp.contracts.InsuranceContract
 import com.alice.carapp.states.Insurance
 
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.Requirements.using
@@ -21,7 +22,7 @@ import java.util.*
 
 @InitiatingFlow
 @StartableByRPC
-class InsuranceDistributeFlow(val linearId: UniqueIdentifier, val price: Amount<Currency>, val cover: String, val effDate: Date, val expiryDate: Date) : FlowLogic<SignedTransaction>() {
+class InsuranceDistributeFlow(val linearId: UniqueIdentifier, val price: Amount<FiatCurrency>, val cover: String, val effDate: Date, val expiryDate: Date) : FlowLogic<SignedTransaction>() {
 
     /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
     override val progressTracker = ProgressTracker()

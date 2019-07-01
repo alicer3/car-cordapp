@@ -7,6 +7,8 @@ import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.contracts.UniqueIdentifier
@@ -15,9 +17,6 @@ import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.packageName
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.schemas.CashSchemaV1
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.StartedMockNode
@@ -40,7 +39,7 @@ class MOTIssueTest {
 
     @Before
     fun setup() {
-        mockNetwork = MockNetwork(listOf("com.alice.carapp", "net.corda.finance.contracts.asset", CashSchemaV1::class.packageName),
+        mockNetwork = MockNetwork(listOf("com.alice.carapp", "com.r3.corda.lib.token.money", "com.r3.corda.lib.tokens.contracts"),
                 notarySpecs = listOf(MockNetworkNotarySpec(CordaX500Name("Notary", "London", "GB"))))
         a = mockNetwork.createPartyNode()
         b = mockNetwork.createPartyNode()
@@ -62,14 +61,14 @@ class MOTIssueTest {
         val tx = getAgreedProposal()
         val proposal = tx.tx.outputsOfType<MOTProposal>().single()
         val payFlow = MOTProposalPayFlow(proposal.linearId)
-        issueCash(159.POUNDS, b)
+        issueCash(159.GBP, b)
         return runFlow(payFlow, b)
     }
 
     fun getAgreedProposal(): SignedTransaction {
-        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.POUNDS, StatusEnum.DRAFT, a.info.legalIdentities.first())
+        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.GBP, StatusEnum.DRAFT, a.info.legalIdentities.first())
         val issueFlow = MOTProposalIssueFlow(proposal)
-        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.POUNDS)
+        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.GBP)
         val agreeFlow = MOTProposalAgreeFlow(proposal.linearId)
         runFlow(issueFlow, a)
         runFlow(distributeFlow, a)
@@ -84,8 +83,8 @@ class MOTIssueTest {
     }
 
 
-    private fun issueCash(amount: Amount<Currency>, ap: StartedMockNode): Cash.State {
-        val flow = SelfIssueCashFlow(amount)
+    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode): Unit {
+        val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()

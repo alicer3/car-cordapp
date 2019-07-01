@@ -8,6 +8,8 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.flows.TAX.TAXIssueFlow
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.flows.FlowLogic
@@ -16,9 +18,9 @@ import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.packageName
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.schemas.CashSchemaV1
+
+
+
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.MockNetworkParameters
@@ -51,7 +53,7 @@ class TAXIssueTest {
     @Before
     fun setup() {
         setDates()
-        mockNetwork = MockNetwork(listOf("com.alice.carapp", "net.corda.finance.contracts.asset", CashSchemaV1::class.packageName),
+        mockNetwork = MockNetwork(listOf("com.alice.carapp", "com.r3.corda.lib.token.money", "com.r3.corda.lib.tokens.contracts"),
                 notarySpecs = listOf(MockNetworkNotarySpec(CordaX500Name("Notary", "London", "GB"))),
                 networkParameters = MockNetworkParameters().networkParameters.copy(minimumPlatformVersion = 4))
         a = mockNetwork.createPartyNode()
@@ -97,7 +99,7 @@ class TAXIssueTest {
     fun getAgreedInsurance(ownerNode: StartedMockNode, insurancerNode: StartedMockNode, initater: StartedMockNode, counter: StartedMockNode, effective: Date, expiry: Date, vehicle: Vehicle = vehicle1): SignedTransaction {
         val insurancer = insurancerNode.info.legalIdentities.single()
         val insured = ownerNode.info.legalIdentities.single()
-        val draft = Insurance(insurancer, insured, vehicle, 100.POUNDS, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, insured, vehicle, 100.GBP, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
 
         val itx = runFlow(InsuranceDraftFlow(draft), initater)
         val distributeFlow = InsuranceDistributeFlow(draft.linearId, draft.price, draft.coverage, effective, expiry)
@@ -119,15 +121,15 @@ class TAXIssueTest {
     fun getIssuedMOT(ownerNode: StartedMockNode, testerNode: StartedMockNode, initater: StartedMockNode, counter: StartedMockNode, motTD: Date, motED: Date, vehicle: Vehicle = vehicle1, result: Boolean = true): SignedTransaction {
         val tester = testerNode.info.legalIdentities.single()
         val owner = ownerNode.info.legalIdentities.single()
-        val proposal = MOTProposal(tester, owner, vehicle, 100.POUNDS, StatusEnum.DRAFT, initater.info.legalIdentities.first())
+        val proposal = MOTProposal(tester, owner, vehicle, 100.GBP, StatusEnum.DRAFT, initater.info.legalIdentities.first())
         val issueFlow = MOTProposalIssueFlow(proposal)
         runFlow(issueFlow, initater)
-        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.POUNDS)
+        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.GBP)
         runFlow(distributeFlow, initater)
         val agreeFlow = MOTProposalAgreeFlow(proposal.linearId)
         runFlow(agreeFlow, counter)
         val payFlow = MOTProposalPayFlow(proposal.linearId)
-        issueCash(100.POUNDS, ownerNode)
+        issueCash(100.GBP, ownerNode)
         runFlow(payFlow, ownerNode)
         val issueMOTFlow = MOTIssueFlow(proposal.linearId, testDate = motTD, expiryDate = motED, loc = "loc", result = result)
         return runFlow(issueMOTFlow, testerNode)
@@ -139,8 +141,8 @@ class TAXIssueTest {
     }
 
 
-    private fun issueCash(amount: Amount<Currency>, ap: StartedMockNode): Cash.State {
-        val flow = SelfIssueCashFlow(amount)
+    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode): Unit {
+        val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()

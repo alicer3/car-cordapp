@@ -4,13 +4,14 @@ import com.alice.carapp.flows.Insurance.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
 import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
@@ -59,12 +60,12 @@ class InsuranceAgreeTest {
     fun draftInsurance(ap: StartedMockNode): SignedTransaction {
         val insurancer = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val draft = Insurance(insurancer, owner, vehicle, 100.POUNDS, "coverage", start, end, ap.info.legalIdentities.first(), StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, owner, vehicle, 100.GBP, "coverage", start, end, ap.info.legalIdentities.first(), StatusEnum.DRAFT)
         val flow = InsuranceDraftFlow(draft)
         return runFlow(flow, ap)
     }
 
-    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<Currency>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
+    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<FiatCurrency>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
         val output = tx.tx.outputs.single().data as Insurance
         val flow = InsuranceDistributeFlow(output.linearId, newPrice, cov, date1, date2)
         return runFlow(flow, ap)

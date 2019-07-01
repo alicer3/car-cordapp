@@ -6,6 +6,9 @@ import com.alice.carapp.flows.InsuranceCopy.InsuranceCopyIssueFlow
 import com.alice.carapp.flows.MOTCopy.MOTCopyIssueFlow
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
+import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
+import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.StateAndRef
@@ -15,9 +18,6 @@ import net.corda.core.node.services.queryBy
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import net.corda.finance.contracts.utils.sumCashBy
-import net.corda.finance.workflows.asset.CashUtils
-import net.corda.finance.workflows.getCashBalance
 import java.lang.IllegalArgumentException
 
 // owner
@@ -51,18 +51,18 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
         val icptx = subFlow(InsuranceCopyIssueFlow(insurance.state.data))
         val insuranceCopy = icptx.tx.outRefsOfType<InsuranceCopy>().single()
 
+        val cashBalance = serviceHub.vaultService.tokenBalance(TAX.price.token)
+        if(cashBalance < TAX.price) throw IllegalArgumentException("Not enough cash to pay for Tax!")
 
-        // Cash balance check
-        val cashBalance = serviceHub.getCashBalance(TAX.price.token)
-        if (cashBalance < TAX.price) {
-            throw IllegalArgumentException("Not enough cash to pay for TAX!")
-        }
 
         // build transaction and sign
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
-        val ptx = TransactionBuilder(notary)
-        val (tx, cashKeys) = CashUtils.generateSpend(serviceHub, ptx, TAX.price, ourIdentityAndCert, tax.LTA)
-        subFlow(IdentitySyncFlow.Send(targetSession, tx.toWireTransaction(serviceHub)))
+        val tx = TransactionBuilder(notary)
+
+
+        addMoveTokens(tx, TAX.price, tax.LTA, ourIdentity)
+        val cashKeys = tx.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)
+
 
         val command = Command(TAXContract.Commands.Issue(), tax.participants.map { it.owningKey })
         tx.addInputState(motCopy).addInputState(insuranceCopy)
@@ -71,6 +71,7 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
         tx.verify(serviceHub)
         val keys = (cashKeys.toSet() + ourIdentity.owningKey).toSet()
         val partedSignedTx = serviceHub.signInitialTransaction(tx, keys)
+        subFlow(IdentitySyncFlow.Send(targetSession, tx.toWireTransaction(serviceHub)))
 
         // send back partially signed transaction
         val insurancerSign = subFlow(CollectSignaturesFlow(partedSignedTx, listOf(targetSession).toSet(), keys))

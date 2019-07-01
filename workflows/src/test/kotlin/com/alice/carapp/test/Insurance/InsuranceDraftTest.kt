@@ -6,14 +6,13 @@ import com.alice.carapp.flows.Insurance.InsuranceDraftFlowResponder
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.packageName
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
-import net.corda.finance.schemas.CashSchemaV1
 import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
@@ -38,7 +37,7 @@ class InsuranceDraftTest {
 
     @Before
     fun setup() {
-        mockNetwork = MockNetwork(listOf("com.alice.carapp", "net.corda.finance.contracts.asset", CashSchemaV1::class.packageName),
+        mockNetwork = MockNetwork(listOf("com.alice.carapp", "com.r3.corda.lib.token.money", "com.r3.corda.lib.tokens.contracts"),
                 notarySpecs = listOf(MockNetworkNotarySpec(CordaX500Name("Notary", "London", "GB"))))
         a = mockNetwork.createPartyNode()
         b = mockNetwork.createPartyNode()
@@ -71,7 +70,7 @@ class InsuranceDraftTest {
         val insurancer = b.info.chooseIdentityAndCert().party
         val start = Date(2019,6,1)
         val end = Date(2020, 5, 31)
-        val draft = Insurance(insurancer, owner, vehicle, 1000.POUNDS, "coverage", start, end, owner, StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, owner, vehicle, 1000.GBP, "coverage", start, end, owner, StatusEnum.DRAFT)
         val flow = InsuranceDraftFlow(draft)
         val ptx = runFlow(flow, a)
         // Print the transaction for debugging purposes.
@@ -93,29 +92,29 @@ class InsuranceDraftTest {
         val owner = b.info.chooseIdentityAndCert().party
         val start = Date(2019,6,1)
         val end = Date(2020, 5, 31)
-        val zeroDraft = Insurance(insurancer, owner, vehicle, 0.POUNDS, "coverage", start, end, insurancer, StatusEnum.DRAFT)
+        val zeroDraft = Insurance(insurancer, owner, vehicle, 0.GBP, "coverage", start, end, insurancer, StatusEnum.DRAFT)
         val flow = InsuranceDraftFlow(zeroDraft)
         val futureOne = a.startFlow(flow)
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureOne.getOrThrow() }
         // Check that proposal with wrong status fails.
-        val pendingProposal = Insurance(insurancer, owner, vehicle, 1000.POUNDS, "coverage", start, end, insurancer,  StatusEnum.PENDING)
+        val pendingProposal = Insurance(insurancer, owner, vehicle, 1000.GBP, "coverage", start, end, insurancer,  StatusEnum.PENDING)
         val futureTwo = a.startFlow(InsuranceDraftFlow(pendingProposal))
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
         // Check that proposal with wrong action party fails.
-        val proposalWrongAP = Insurance(insurancer, owner, vehicle, 10.POUNDS, "coverage", start, end, owner, StatusEnum.DRAFT)
+        val proposalWrongAP = Insurance(insurancer, owner, vehicle, 10.GBP, "coverage", start, end, owner, StatusEnum.DRAFT)
         val futureThree = a.startFlow(InsuranceDraftFlow(proposalWrongAP))
         mockNetwork.runNetwork()
         assertFailsWith<IllegalArgumentException> { futureThree.getOrThrow() }
         // wrong dates
         // Check that proposal with wrong status fails.
-        val wrongProposal = Insurance(insurancer, owner, vehicle, 1000.POUNDS, "coverage", end, start, insurancer,  StatusEnum.DRAFT)
+        val wrongProposal = Insurance(insurancer, owner, vehicle, 1000.GBP, "coverage", end, start, insurancer,  StatusEnum.DRAFT)
         val futureFive = a.startFlow(InsuranceDraftFlow(wrongProposal))
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureFive.getOrThrow() }
         // Check a good proposal passes.
-        val proposal = Insurance(insurancer, owner, vehicle, 10.POUNDS, "coverage", start, end, insurancer, StatusEnum.DRAFT)
+        val proposal = Insurance(insurancer, owner, vehicle, 10.GBP, "coverage", start, end, insurancer, StatusEnum.DRAFT)
         val futureFour = a.startFlow(InsuranceDraftFlow(proposal))
         mockNetwork.runNetwork()
         futureFour.getOrThrow()
@@ -128,7 +127,7 @@ class InsuranceDraftTest {
         val owner = b.info.chooseIdentityAndCert().party
         val start = Date(2019,6,1)
         val end = Date(2020, 5, 31)
-        val proposal = Insurance(insurancer, owner, vehicle, 10.POUNDS, "coverage", start, end, insurancer, StatusEnum.DRAFT)
+        val proposal = Insurance(insurancer, owner, vehicle, 10.GBP, "coverage", start, end, insurancer, StatusEnum.DRAFT)
         val stx = runFlow(InsuranceDraftFlow(proposal), a)
         println("Signed transaction hash: ${stx.id}")
         listOf(a, b).map {

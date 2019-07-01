@@ -3,6 +3,7 @@ package com.alice.carapp.flows.MOTProposal
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.MOTProposalContract
 import com.alice.carapp.states.MOTProposal
+import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.UniqueIdentifier
@@ -16,7 +17,7 @@ import java.util.*
 
 @InitiatingFlow
 @StartableByRPC
-class MOTProposalUpdateFlow(val linearId: UniqueIdentifier, val newPrice: Amount<Currency>) : FlowLogic<SignedTransaction>() {
+class MOTProposalUpdateFlow(val linearId: UniqueIdentifier, val newPrice: Amount<FiatCurrency>) : FlowLogic<SignedTransaction>() {
 
     /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
     override val progressTracker = ProgressTracker()

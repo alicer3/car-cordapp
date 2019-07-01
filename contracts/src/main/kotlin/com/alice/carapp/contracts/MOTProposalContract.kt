@@ -3,11 +3,11 @@ package com.alice.carapp.contracts
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
+import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.*
 import net.corda.core.transactions.LedgerTransaction
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.contracts.utils.sumCash
-import net.corda.finance.contracts.utils.sumCashBy
 
 class MOTProposalContract: Contract {
     companion object {
@@ -86,18 +86,18 @@ class MOTProposalContract: Contract {
             }
             is Commands.Pay -> {
                 val inputs_proposal = tx.inputsOfType<MOTProposal>()
-                val inputs_cash = tx.inputsOfType<Cash.State>()
+                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
                 val outputs_proposal = tx.outputsOfType<MOTProposal>()
-                val outputs_cash = tx.outputsOfType<Cash.State>()
+                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
                 requireThat {
                     "There should be one Agreed MOTProposal as input." using (inputs_proposal.single().status == StatusEnum.AGREED)
                     val proposal = inputs_proposal.single()
                     "There should be cash as input." using (inputs_cash.isNotEmpty())
                     "There should be one Paid MOTProposal as output." using (outputs_proposal.single().status == StatusEnum.PAID)
                     val proposalPaid = outputs_proposal.single()
-                    "The owner of input cash should be the vehicle owner in MOTProposal." using (inputs_cash.all { it.owner == proposal.owner })
-                    "The amount of output cash that goes to tester should be equal to price on proposal." using (outputs_cash.sumCashBy(proposal.tester).quantity == proposal.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumCash().quantity == outputs_cash.sumCash().quantity)
+                    "The owner of input cash should be the vehicle owner in MOTProposal." using (inputs_cash.all { it.holder == proposal.owner })
+                    "The amount of output cash that goes to tester should be equal to price on proposal." using (outputs_cash.filter { it.holder == proposal.tester }.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == proposal.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity)
                     "MOTProposal should be consistent except for the status." using (proposal.copy(status = StatusEnum.PAID) == proposalPaid)
                     "Both garage and owner should sign." using (command.signers.contains(proposal.owner.owningKey) && command.signers.contains(proposal.tester.owningKey))
 

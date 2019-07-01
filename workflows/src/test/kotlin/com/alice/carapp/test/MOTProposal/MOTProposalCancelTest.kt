@@ -5,6 +5,8 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateRef
 import net.corda.core.contracts.TransactionVerificationException
@@ -12,7 +14,7 @@ import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
+
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.StartedMockNode
@@ -49,14 +51,14 @@ class MOTProposalCancelTest {
     }
 
     fun issueProposal(ap: StartedMockNode): SignedTransaction {
-        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.POUNDS, StatusEnum.DRAFT, ap.info.legalIdentities.first())
+        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.GBP, StatusEnum.DRAFT, ap.info.legalIdentities.first())
         val flow = MOTProposalIssueFlow(proposal)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<Currency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalDistributeFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -101,8 +103,8 @@ class MOTProposalCancelTest {
     fun testInputStatus() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
-        distributeMOTProposal(linearId, 150.POUNDS, b)
+        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
+        distributeMOTProposal(linearId, 150.GBP, b)
         assertFailsWith<TransactionVerificationException> {cancelMOTProposal(linearId, a)}
         agreeMOTProposal(linearId, a)
         cancelMOTProposal(linearId, a)
@@ -113,8 +115,8 @@ class MOTProposalCancelTest {
     fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
-        val distributeTx2 = distributeMOTProposal(linearId, 150.POUNDS, b)
+        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
+        val distributeTx2 = distributeMOTProposal(linearId, 150.GBP, b)
         val agreeTx = agreeMOTProposal(linearId, a)
         val cancelTx = cancelMOTProposal(linearId, a)
         assert(cancelTx.tx.inputs.size == 1)
@@ -141,8 +143,8 @@ class MOTProposalCancelTest {
 //    fun testForFun() {
 //        val issueTx = issueProposal(a)
 //        val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-//        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
-//        val distributeTx2 = distributeMOTProposal(linearId, 150.POUNDS, b)
+//        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
+//        val distributeTx2 = distributeMOTProposal(linearId, 150.GBP, b)
 //        val agreeTx = agreeMOTProposal(linearId, a)
 //        val proposal = agreeTx.tx.outputs.single().data as MOTProposal
 //        val cancelTx = cancelMOTProposal(linearId, a)

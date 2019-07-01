@@ -4,13 +4,15 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
+
 import net.corda.testing.node.*
 import org.junit.After
 import org.junit.Before
@@ -46,14 +48,14 @@ class MOTProposalRejectTest {
     }
 
     fun issueProposal(ap: StartedMockNode): SignedTransaction {
-        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.POUNDS, StatusEnum.DRAFT, ap.info.legalIdentities.first())
+        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.GBP, StatusEnum.DRAFT, ap.info.legalIdentities.first())
         val flow = MOTProposalIssueFlow(proposal)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<Currency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalDistributeFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -91,7 +93,7 @@ class MOTProposalRejectTest {
     fun testWrongActionParty() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
+        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
         assertFailsWith<IllegalArgumentException> {rejectMOTProposal(linearId, a)}
 
     }
@@ -105,8 +107,8 @@ class MOTProposalRejectTest {
     fun testInputStatus() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
-        distributeMOTProposal(linearId, 150.POUNDS, b)
+        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
+        distributeMOTProposal(linearId, 150.GBP, b)
         agreeMOTProposal(linearId, a)
         assertFailsWith<TransactionVerificationException> {rejectMOTProposal(linearId, a)}
     }
@@ -116,8 +118,8 @@ class MOTProposalRejectTest {
     fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        val distributeTx = distributeMOTProposal(linearId, 100.POUNDS, a)
-        val distributeTx2 = distributeMOTProposal(linearId, 150.POUNDS, b)
+        val distributeTx = distributeMOTProposal(linearId, 100.GBP, a)
+        val distributeTx2 = distributeMOTProposal(linearId, 150.GBP, b)
         val rejectTx = rejectMOTProposal(linearId, a)
         rejectTx.verifyRequiredSignatures()
         println("Signed transaction hash: ${rejectTx.id}")

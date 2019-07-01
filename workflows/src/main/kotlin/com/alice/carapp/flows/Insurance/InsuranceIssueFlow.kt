@@ -8,6 +8,10 @@ import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTCopy
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.GBP
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
+import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
+import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
@@ -17,14 +21,7 @@ import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import net.corda.core.utilities.unwrap
-import net.corda.finance.workflows.asset.CashUtils
-import net.corda.finance.workflows.getCashBalance
 import java.lang.IllegalArgumentException
-import java.security.PublicKey
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.*
 
 
 @InitiatingFlow
@@ -68,10 +65,6 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
     override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): SignedTransaction {
-//        // receive request for MOT and send MOT back
-//        val vehicle = flowSession.receive<Vehicle>().unwrap { data -> data }
-//        val mot = findMOT(vehicle = vehicle)
-//        flowSession.send(mot?.state?.data?: false)
 
         // receive state and ref of Insurance
         val receivedInsurance = subFlow(ReceiveStateAndRefFlow<Insurance>(flowSession)).single()
@@ -82,24 +75,22 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
         val mcptx = subFlow(MOTCopyIssueFlow(mot.state.data))
         val motCopy = mcptx.tx.outRefsOfType<MOTCopy>().single()
 
+        val cashBalance = serviceHub.vaultService.tokenBalance(GBP)
+        if(cashBalance < receivedInsurance.state.data.price) throw IllegalArgumentException("Not enough cash to pay for insurance!")
 
-        // Cash balance check
-        val cashBalance = serviceHub.getCashBalance(receivedInsurance.state.data.price.token)
-        if (cashBalance < receivedInsurance.state.data.price) {
-            throw IllegalArgumentException("Not enough cash to pay for insurance!")
-        }
 
         // build transaction and sign
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
-        val ptx = TransactionBuilder(notary)
-        val (tx, cashKeys) = CashUtils.generateSpend(serviceHub, ptx, receivedInsurance.state.data.price, ourIdentityAndCert, receivedInsurance.state.data.insurancer)
-
+        val tx = TransactionBuilder(notary)
+        //val (tx, cashKeys) = CashUtils.generateSpend(serviceHub, ptx, receivedInsurance.state.data.price, ourIdentityAndCert, receivedInsurance.state.data.insurancer)
         val command = Command(InsuranceContract.Commands.Issue(), receivedInsurance.state.data.participants.map { it.owningKey })
         tx.addInputState(receivedInsurance).addInputState(motCopy)//.addReferenceState(ReferencedStateAndRef(motCopy))
                 .addOutputState(receivedInsurance.state.data.copy(status = StatusEnum.ISSUED), InsuranceContract.ID)
                 .addCommand(command)
+        addMoveTokens(tx, receivedInsurance.state.data.price, receivedInsurance.state.data.insurancer, ourIdentity)
         tx.verify(serviceHub)
-        val keys = (cashKeys.toSet() + ourIdentity.owningKey).toSet()
+
+        val keys = tx.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)
         val partedSignedTx = serviceHub.signInitialTransaction(tx, keys)
 
         // send back partially signed transaction

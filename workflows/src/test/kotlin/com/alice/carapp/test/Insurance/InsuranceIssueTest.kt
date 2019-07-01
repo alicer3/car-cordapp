@@ -8,6 +8,8 @@ import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.flows.FlowLogic
@@ -16,9 +18,6 @@ import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.packageName
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.schemas.CashSchemaV1
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.MockNetworkParameters
@@ -47,7 +46,7 @@ class InsuranceIssueTest {
     @Before
     fun setup() {
         setDates()
-        mockNetwork = MockNetwork(listOf("com.alice.carapp", "net.corda.finance.contracts.asset", CashSchemaV1::class.packageName),
+        mockNetwork = MockNetwork(listOf("com.alice.carapp", "com.r3.corda.lib.token.money", "com.r3.corda.lib.tokens.contracts"),
                 notarySpecs = listOf(MockNetworkNotarySpec(CordaX500Name("Notary", "London", "GB"))),
                 networkParameters = MockNetworkParameters().networkParameters.copy(minimumPlatformVersion = 4))
         a = mockNetwork.createPartyNode()
@@ -87,7 +86,7 @@ class InsuranceIssueTest {
     fun getDistributedInsurance(ownerNode: StartedMockNode, insurancerNode: StartedMockNode, initater: StartedMockNode, counter: StartedMockNode, effective: Date, expiry: Date, vehicle: Vehicle = vehicle1): SignedTransaction {
         val insurancer = insurancerNode.info.legalIdentities.single()
         val insured = ownerNode.info.legalIdentities.single()
-        val draft = Insurance(insurancer, insured, vehicle, 100.POUNDS, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, insured, vehicle, 100.GBP, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
 
         val itx = runFlow(InsuranceDraftFlow(draft), initater)
         val distributeFlow = InsuranceDistributeFlow(draft.linearId, draft.price, draft.coverage, effective, expiry)
@@ -97,7 +96,7 @@ class InsuranceIssueTest {
     fun getAgreedInsurance(ownerNode: StartedMockNode, insurancerNode: StartedMockNode, initater: StartedMockNode, counter: StartedMockNode, effective: Date, expiry: Date, vehicle: Vehicle = vehicle1): SignedTransaction {
         val insurancer = insurancerNode.info.legalIdentities.single()
         val insured = ownerNode.info.legalIdentities.single()
-        val draft = Insurance(insurancer, insured, vehicle, 100.POUNDS, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, insured, vehicle, 100.GBP, "coverage", effective, expiry, initater.info.legalIdentities.first(), StatusEnum.DRAFT)
 
         val itx = runFlow(InsuranceDraftFlow(draft), initater)
         val distributeFlow = InsuranceDistributeFlow(draft.linearId, draft.price, draft.coverage, effective, expiry)
@@ -110,23 +109,23 @@ class InsuranceIssueTest {
     fun getIssuedMOT(ownerNode: StartedMockNode, testerNode: StartedMockNode, initater: StartedMockNode, counter: StartedMockNode, motTD: Date, motED: Date, vehicle: Vehicle = vehicle1, result: Boolean = true): SignedTransaction {
         val tester = testerNode.info.legalIdentities.single()
         val owner = ownerNode.info.legalIdentities.single()
-        val proposal = MOTProposal(tester, owner, vehicle, 100.POUNDS, StatusEnum.DRAFT, initater.info.legalIdentities.first())
+        val proposal = MOTProposal(tester, owner, vehicle, 100.GBP, StatusEnum.DRAFT, initater.info.legalIdentities.first())
         val issueFlow = MOTProposalIssueFlow(proposal)
         runFlow(issueFlow, initater)
-        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.POUNDS)
+        val distributeFlow = MOTProposalDistributeFlow(proposal.linearId, 100.GBP)
         runFlow(distributeFlow, initater)
         val agreeFlow = MOTProposalAgreeFlow(proposal.linearId)
         runFlow(agreeFlow, counter)
         val payFlow = MOTProposalPayFlow(proposal.linearId)
-        issueCash(100.POUNDS, ownerNode)
+        issueCash(100.GBP, ownerNode)
         runFlow(payFlow, ownerNode)
         val issueMOTFlow = MOTIssueFlow(proposal.linearId, testDate = motTD, expiryDate = motED, loc = "loc", result = result)
         return runFlow(issueMOTFlow, testerNode)
     }
 
 
-    private fun issueCash(amount: Amount<Currency>, ap: StartedMockNode): Cash.State {
-        val flow = SelfIssueCashFlow(amount)
+    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode): Unit {
+        val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()
@@ -152,7 +151,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<IllegalArgumentException> {  runFlow(issueFlow, a)  }
@@ -163,7 +162,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getDistributedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<TransactionVerificationException> {  runFlow(issueFlow, c)  }
@@ -174,7 +173,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<UnexpectedFlowEndException> {  runFlow(issueFlow, c)  }
     }
@@ -184,7 +183,7 @@ class InsuranceIssueTest {
         //getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<UnexpectedFlowEndException> {  runFlow(issueFlow, c)  }
@@ -195,7 +194,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getAgreedInsurance(ownerNode = b, insurancerNode = c, initater = b, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, b)
+        issueCash(59.GBP, b)
         issueCash(draft.price, b)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<UnexpectedFlowEndException> {  runFlow(issueFlow, c)  }
@@ -206,7 +205,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4, vehicle = vehicle2)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<UnexpectedFlowEndException> { runFlow(issueFlow, c) }
@@ -217,7 +216,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4, result = false)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<UnexpectedFlowEndException> {  runFlow(issueFlow, c)  }
@@ -231,7 +230,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = twoYearAgo, motED = date4)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<TransactionVerificationException> {  runFlow(issueFlow, c) }
@@ -242,7 +241,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date3)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date4)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         assertFailsWith<TransactionVerificationException> {  runFlow(issueFlow, c) }
@@ -253,7 +252,7 @@ class InsuranceIssueTest {
         getIssuedMOT(ownerNode = a, testerNode = b, initater = a, counter = b, motTD = date1, motED = date4)
         val tx = getAgreedInsurance(ownerNode = a, insurancerNode = c, initater = a, counter = c, effective = date2, expiry = date3)
         val draft = tx.tx.outputsOfType<Insurance>().single()
-        issueCash(59.POUNDS, a)
+        issueCash(59.GBP, a)
         issueCash(draft.price, a)
         val issueFlow = InsuranceIssueFlow(draft.linearId)
         val atx = runFlow(issueFlow, c)

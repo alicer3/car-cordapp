@@ -4,23 +4,33 @@ import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.MOTProposalContract
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.utilities.heldBy
+import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
+import com.r3.corda.lib.tokens.contracts.utilities.of
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
+import com.r3.corda.lib.tokens.workflows.flows.evolvable.UpdateEvolvableToken
+import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlow
+import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlowHandler
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
+import com.r3.corda.lib.tokens.workflows.flows.rpc.IssueTokens
+
+import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
+import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.*
+import net.corda.core.identity.Party
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.utilities.OpaqueBytes
 import net.corda.core.utilities.ProgressTracker
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.flows.CashIssueFlow
-import net.corda.finance.workflows.asset.CashUtils
-import net.corda.finance.workflows.getCashBalance
 import java.lang.IllegalArgumentException
 import java.util.*
+import javax.annotation.Signed
 
 @InitiatingFlow
 @StartableByRPC
@@ -43,23 +53,34 @@ class MOTProposalPayFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
         val txBuilder = TransactionBuilder(notary = notary)
 
         // deal with cash payment
-        val cashBalance = serviceHub.getCashBalance(input.price.token)
-        if (cashBalance < input.price) {
-            throw IllegalArgumentException("Owner has only $cashBalance but needs ${input.price} to pay.")
-        }
-        val (_, cashKeys) = CashUtils.generateSpend(serviceHub, txBuilder, input.price, ourIdentityAndCert, input.tester)
-        // We create the transaction components.
-        val command = Command(MOTProposalContract.Commands.Pay(), input.participants.map { it.owningKey })
+//        val cashBalance = serviceHub.getCashBalance(input.price.token)
+//        if (cashBalance < input.price) {
+//            throw IllegalArgumentException("Owner has only $cashBalance but needs ${input.price} to pay.")
+//        }
+//        val (_, cashKeys) = CashUtils.generateSpend(serviceHub, txBuilder, input.price, ourIdentityAndCert, input.tester)
+//
+//        // We create the transaction components.
+//        val command = Command(MOTProposalContract.Commands.Pay(), input.participants.map { it.owningKey })
+//
+//        // We create a transaction builder and add the components.
+//        txBuilder.addInputState(stateAndRef)
+//                .addOutputState(input.copy(status = StatusEnum.PAID), MOTProposalContract.ID)
+//                .addCommand(command)
+//
+//        // Verifying the transaction.
+//        txBuilder.verify(serviceHub)
+//
+//        val myKeysToSign = (cashKeys.toSet() + ourIdentity.owningKey).toList()
+        val cashBalance = serviceHub.vaultService.tokenBalance(input.price.token)
+        if(cashBalance < input.price) throw IllegalArgumentException("Owner has only $cashBalance but needs ${input.price} to pay.")
 
-        // We create a transaction builder and add the components.
+        addMoveTokens(txBuilder, input.price, input.tester, ourIdentity)
+
+        val command = Command(MOTProposalContract.Commands.Pay(), input.participants.map { it.owningKey })
         txBuilder.addInputState(stateAndRef)
                 .addOutputState(input.copy(status = StatusEnum.PAID), MOTProposalContract.ID)
                 .addCommand(command)
-
-        // Verifying the transaction.
-        txBuilder.verify(serviceHub)
-
-        val myKeysToSign = (cashKeys.toSet() + ourIdentity.owningKey).toList()
+        val myKeysToSign = txBuilder.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)
         // Signing the transaction.
         val signedTx = serviceHub.signInitialTransaction(txBuilder, myKeysToSign)
         val targetSession = (input.participants - ourIdentity).map { initiateFlow(it) }
@@ -68,6 +89,8 @@ class MOTProposalPayFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
         val stx = subFlow(CollectSignaturesFlow(signedTx, targetSession, myOptionalKeys = myKeysToSign))
         // Finalising the transaction.
         return subFlow(FinalityFlow(stx, targetSession))
+
+
     }
 }
 
@@ -93,16 +116,23 @@ class MOTProposalPayFlowResponder(private val flowSession: FlowSession) : FlowLo
  */
 @InitiatingFlow
 @StartableByRPC
-class SelfIssueCashFlow(val amount: Amount<Currency>) : FlowLogic<Cash.State>() {
+class SelfIssueCashFlow(val amount: Amount<FiatCurrency>, val receiver: Party) : FlowLogic<Unit>() {
     @Suspendable
-    override fun call(): Cash.State {
-        /** Create the cash issue command. */
-        val issueRef = OpaqueBytes.of(0)
-        /** Note: ongoing work to support multiple notary identities is still in progress. */
-        val notary = serviceHub.networkMapCache.notaryIdentities.first()
-        /** Create the cash issuance transaction. */
-        val cashIssueTransaction = subFlow(CashIssueFlow(amount, issueRef, notary))
-        /** Return the cash output. */
-        return cashIssueTransaction.stx.tx.outputs.single().data as Cash.State
+    override fun call() {
+
+        val token = amount issuedBy ourIdentity heldBy receiver
+
+        val flows = token.participants.map{ party -> initiateFlow(party as Party) }
+        val flow = IssueTokensFlow(token, flows, emptyList())
+
+        subFlow(flow)
+    }
+
+    @InitiatedBy(SelfIssueCashFlow::class)
+    class SelfCashIssueFlowResponse (val flowSession: FlowSession): FlowLogic<Unit>() {
+        @Suspendable
+        override fun call() {
+            subFlow(IssueTokensFlowHandler(flowSession))
+        }
     }
 }

@@ -7,12 +7,13 @@ import com.alice.carapp.flows.Insurance.InsuranceDraftFlow
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateRef
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
 import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
@@ -55,7 +56,7 @@ class InsuranceDistributeTest {
     fun draftInsurance(ap: StartedMockNode): SignedTransaction {
         val insurancer = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val draft = Insurance(insurancer, owner, vehicle, 100.POUNDS, "coverage", start, end, ap.info.legalIdentities.first(), StatusEnum.DRAFT)
+        val draft = Insurance(insurancer, owner, vehicle, 100.GBP, "coverage", start, end, ap.info.legalIdentities.first(), StatusEnum.DRAFT)
         val flow = InsuranceDraftFlow(draft)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -63,7 +64,7 @@ class InsuranceDistributeTest {
     }
 
 
-    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<Currency>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
+    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<FiatCurrency>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
         val output = tx.tx.outputs.single().data as Insurance
         val flow = InsuranceDistributeFlow(output.linearId, newPrice, cov, date1, date2)
         val future = ap.startFlow(flow)
@@ -75,7 +76,7 @@ class InsuranceDistributeTest {
     fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
         val itx = draftInsurance(b)
         val draft = itx.tx.outputStates.single() as Insurance
-        val ptx = distributeInsurance(itx, draft.price.minus(10.POUNDS), draft.effectiveDate, draft.expiryDate, draft.coverage, b)
+        val ptx = distributeInsurance(itx, draft.price.minus(10.GBP), draft.effectiveDate, draft.expiryDate, draft.coverage, b)
         // Check the transaction is well formed...
         // One output IOUState, one input state reference and a Transfer command with the right properties.
         assert(ptx.tx.inputs.size == 1)
@@ -96,7 +97,7 @@ class InsuranceDistributeTest {
 //        val dtx = distributeInsurance(itx, draft.price, draft.effectiveDate, draft.expiryDate, draft.coverage, b)
 //        //val atx = agreeInsurance(dtx, b)
 //
-//        assertFailsWith<TransactionVerificationException> { distributeInsurance(atx, 150.POUNDS, b) }
+//        assertFailsWith<TransactionVerificationException> { distributeInsurance(atx, 150.GBP, b) }
 //
 //    }
 
@@ -109,7 +110,7 @@ class InsuranceDistributeTest {
         val draft = itx.tx.outputStates.single() as Insurance
         val dtx = distributeInsurance(itx, draft.price, draft.effectiveDate, draft.expiryDate, draft.coverage, b)
 
-        assertFailsWith<IllegalArgumentException> { distributeInsurance(dtx, draft.price.minus(10.POUNDS), draft.effectiveDate, draft.expiryDate, draft.coverage, b) }
+        assertFailsWith<IllegalArgumentException> { distributeInsurance(dtx, draft.price.minus(10.GBP), draft.effectiveDate, draft.expiryDate, draft.coverage, b) }
     }
 
 
@@ -119,7 +120,7 @@ class InsuranceDistributeTest {
         val itx = draftInsurance(b)
         val draft = itx.tx.outputStates.single() as Insurance
         val dtx0 = distributeInsurance(itx, draft.price, draft.effectiveDate, draft.expiryDate, draft.coverage, b)
-        val dtx = distributeInsurance(dtx0, draft.price.minus(10.POUNDS), draft.effectiveDate, draft.expiryDate, draft.coverage, a)
+        val dtx = distributeInsurance(dtx0, draft.price.minus(10.GBP), draft.effectiveDate, draft.expiryDate, draft.coverage, a)
         dtx.verifyRequiredSignatures()
         println("Signed transaction hash: ${dtx.id}")
         listOf(a, b).map {

@@ -7,11 +7,11 @@ import com.alice.carapp.flows.MOTProposal.MOTProposalIssueFlowResponder
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
 import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.*
 import org.junit.After
@@ -52,7 +52,7 @@ class MOTProposalIssueTest {
     fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
         val owner = a.info.chooseIdentityAndCert().party
         val tester = b.info.chooseIdentityAndCert().party
-        val proposal = MOTProposal(tester, owner, vehicle, 1000.POUNDS, StatusEnum.DRAFT, owner)
+        val proposal = MOTProposal(tester, owner, vehicle, 1000.GBP, StatusEnum.DRAFT, owner)
         val flow = MOTProposalIssueFlow(proposal)
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
@@ -76,23 +76,23 @@ class MOTProposalIssueTest {
         // Check that a zero amount proposal fails.
         val tester = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val zeroProposal = MOTProposal(tester, owner, vehicle, 0.POUNDS, StatusEnum.DRAFT, tester)
+        val zeroProposal = MOTProposal(tester, owner, vehicle, 0.GBP, StatusEnum.DRAFT, tester)
         val flow = MOTProposalIssueFlow(zeroProposal)
         val futureOne = a.startFlow(flow)
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureOne.getOrThrow() }
         // Check that proposal with wrong status fails.
-        val pendingProposal = MOTProposal(tester, owner, vehicle, 1000.POUNDS, StatusEnum.PENDING, tester)
+        val pendingProposal = MOTProposal(tester, owner, vehicle, 1000.GBP, StatusEnum.PENDING, tester)
         val futureTwo = a.startFlow(MOTProposalIssueFlow(pendingProposal))
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
         // Check that proposal with wrong action party fails.
-        val proposalWrongAP = MOTProposal(tester, owner, vehicle, 10.POUNDS, StatusEnum.DRAFT, owner)
+        val proposalWrongAP = MOTProposal(tester, owner, vehicle, 10.GBP, StatusEnum.DRAFT, owner)
         val futureThree = a.startFlow(MOTProposalIssueFlow(proposalWrongAP))
         mockNetwork.runNetwork()
         assertFailsWith<IllegalArgumentException> { futureThree.getOrThrow() }
         // Check a good proposal passes.
-        val proposal = MOTProposal(tester, owner, vehicle, 10.POUNDS, StatusEnum.DRAFT, tester)
+        val proposal = MOTProposal(tester, owner, vehicle, 10.GBP, StatusEnum.DRAFT, tester)
         val futureFour = a.startFlow(MOTProposalIssueFlow(proposal))
         mockNetwork.runNetwork()
         futureFour.getOrThrow()
@@ -102,7 +102,7 @@ class MOTProposalIssueTest {
     fun flowReturnsTransactionSignedByBothParties() {
         val tester = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val proposal = MOTProposal(tester, owner, vehicle, 10.POUNDS, StatusEnum.DRAFT, tester)
+        val proposal = MOTProposal(tester, owner, vehicle, 10.GBP, StatusEnum.DRAFT, tester)
         val future = a.startFlow(MOTProposalIssueFlow(proposal))
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
@@ -113,7 +113,7 @@ class MOTProposalIssueTest {
     fun flowRecordsTheSameTransactionInBothPartyVaults() {
         val tester = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val proposal = MOTProposal(tester, owner, vehicle, 10.POUNDS, StatusEnum.DRAFT, tester)
+        val proposal = MOTProposal(tester, owner, vehicle, 10.GBP, StatusEnum.DRAFT, tester)
         val future = a.startFlow(MOTProposalIssueFlow(proposal))
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
@@ -132,17 +132,17 @@ class MOTProposalIssueTest {
     fun issueSameLinearId(){
         val tester = a.info.chooseIdentityAndCert().party
         val owner = b.info.chooseIdentityAndCert().party
-        val proposal1 = MOTProposal(tester, owner, vehicle, 10.POUNDS, StatusEnum.DRAFT, tester)
+        val proposal1 = MOTProposal(tester, owner, vehicle, 10.GBP, StatusEnum.DRAFT, tester)
         val future1 = a.startFlow(MOTProposalIssueFlow(proposal1))
         mockNetwork.runNetwork()
         val stx1 = future1.getOrThrow()
 
-        val proposal2 = MOTProposal(tester, owner, vehicle, 100.POUNDS, StatusEnum.DRAFT, tester, proposal1.linearId)
+        val proposal2 = MOTProposal(tester, owner, vehicle, 100.GBP, StatusEnum.DRAFT, tester, proposal1.linearId)
         val future2 = a.startFlow(MOTProposalIssueFlow(proposal2))
         mockNetwork.runNetwork()
         future2.getOrThrow()
 
-        val future3 = a.startFlow(MOTProposalDistributeFlow(proposal1.linearId, 100.POUNDS))
+        val future3 = a.startFlow(MOTProposalDistributeFlow(proposal1.linearId, 100.GBP))
         mockNetwork.runNetwork()
         assertFails { future3.getOrThrow() }
     }

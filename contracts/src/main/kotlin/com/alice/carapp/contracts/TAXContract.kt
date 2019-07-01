@@ -1,11 +1,11 @@
 package com.alice.carapp.contracts
 
 import com.alice.carapp.states.*
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
+import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.*
 import net.corda.core.transactions.LedgerTransaction
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.contracts.utils.sumCash
-import net.corda.finance.contracts.utils.sumCashBy
 import java.lang.IllegalArgumentException
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -25,17 +25,17 @@ class TAXContract: Contract {
         when (command.value) {
             is Commands.Issue -> {
                 //val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<Cash.State>()
+                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
                 val outputs_tax = tx.outputsOfType<TAX>()
-                val outputs_cash = tx.outputsOfType<Cash.State>()
+                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
 
 
                 requireThat {
                     "There should be one TAX as outout." using (outputs_tax.size == 1)
                     val tax = outputs_tax.single()
-                    "The owner of input cash should be the vehicle owner in TAX." using (inputs_cash.all { it.owner == tax.owner })
-                    "The amount of output cash that goes to LTA should be equal to price on TAX." using (outputs_cash.sumCashBy(tax.LTA).quantity == TAX.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumCash() == outputs_cash.sumCash())
+                    "The owner of input cash should be the vehicle owner in TAX." using (inputs_cash.all { it.holder == tax.owner })
+                    "The amount of output cash that goes to LTA should be equal to price on TAX." using (outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == TAX.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType) == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType))
                     val now = Date()
                     "The effective date should be either today or future and the expiry date should be in future." using (!tax.effectiveDate.before(now) && tax.expiryDate.after(now))
                     "The effective date should be earlier than expiry date." using (tax.effectiveDate.before(tax.expiryDate))

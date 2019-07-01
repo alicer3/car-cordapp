@@ -4,15 +4,15 @@ import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTCopy
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
+import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.Requirements.using
 import net.corda.core.contracts.TimeWindow
 import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.contracts.utils.sumCash
-import net.corda.finance.contracts.utils.sumCashBy
 import java.lang.IllegalArgumentException
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -85,9 +85,10 @@ class InsuranceContract: Contract {
             }
             is Commands.Issue -> {
                 val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<Cash.State>()
+                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
                 val outputs_insurance = tx.outputsOfType<Insurance>()
-                val outputs_cash = tx.outputsOfType<Cash.State>()
+                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
+
 
 
                 requireThat {
@@ -96,9 +97,10 @@ class InsuranceContract: Contract {
                     "There should be cash as input." using (inputs_cash.isNotEmpty())
                     "There should be one ISSUED Insurance as output." using (outputs_insurance.single().status == StatusEnum.ISSUED)
                     val insuranceIssued = outputs_insurance.single()
-                    "The owner of input cash should be the vehicle owner in Insurance." using (inputs_cash.all { it.owner == insurance.insured })
-                    "The amount of output cash that goes to tester should be equal to price on insurance." using (outputs_cash.sumCashBy(insurance.insurancer).quantity == insurance.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumCash().quantity == outputs_cash.sumCash().quantity)
+                    "The owner of input cash should be the vehicle owner in Insurance." using (inputs_cash.all { it.holder == insurance.insured })
+
+                    "The amount of output cash that goes to insurancer should be equal to price on insurance." using (outputs_cash.filter { it.holder == insurance.insurancer }.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == insurance.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity)
                     "Insurance should be consistent except for the status." using (insurance.copy(status = StatusEnum.ISSUED) == insuranceIssued)
                     "Both garage and owner should sign." using (command.signers.contains(insurance.insurancer.owningKey) && command.signers.contains(insurance.insured.owningKey))
 

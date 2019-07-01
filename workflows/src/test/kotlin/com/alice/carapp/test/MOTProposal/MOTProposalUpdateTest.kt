@@ -4,13 +4,15 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
-import net.corda.finance.POUNDS
+
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.StartedMockNode
@@ -48,14 +50,14 @@ class MOTProposalUpdateTest {
     }
 
     fun issueProposal(ap: StartedMockNode): SignedTransaction { // default a as tester and b as owner
-        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.POUNDS, StatusEnum.DRAFT, ap.info.legalIdentities.first())
+        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.GBP, StatusEnum.DRAFT, ap.info.legalIdentities.first())
         val flow = MOTProposalIssueFlow(proposal)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<Currency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalDistributeFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -77,7 +79,7 @@ class MOTProposalUpdateTest {
 
     }
 
-    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<Currency>, ap: StartedMockNode): SignedTransaction {
+    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalUpdateFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -96,9 +98,9 @@ class MOTProposalUpdateTest {
     fun testInputStatus() {
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        distributeMOTProposal(linearId, 100.POUNDS, a)
-        distributeMOTProposal(linearId, 150.POUNDS, b)
-        assertFailsWith<TransactionVerificationException> {updateMOTProposal(linearId, 200.POUNDS, a)}
+        distributeMOTProposal(linearId, 100.GBP, a)
+        distributeMOTProposal(linearId, 150.GBP, b)
+        assertFailsWith<TransactionVerificationException> {updateMOTProposal(linearId, 200.GBP, a)}
     }
 
     /*
@@ -112,9 +114,9 @@ class MOTProposalUpdateTest {
         val issueTx = issueProposal(a)
         println(issueTx.tx.outputs.single())
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        distributeMOTProposal(linearId, 100.POUNDS, a)
+        distributeMOTProposal(linearId, 100.GBP, a)
         agreeMOTProposal(linearId, b)
-        assertFails { updateMOTProposal(linearId, 150.POUNDS, a) }
+        assertFails { updateMOTProposal(linearId, 150.GBP, a) }
     }
 
     /*
@@ -127,18 +129,18 @@ class MOTProposalUpdateTest {
     fun testLowerPriceWithTester(){
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        distributeMOTProposal(linearId, 100.POUNDS, a)
+        distributeMOTProposal(linearId, 100.GBP, a)
         agreeMOTProposal(linearId, b)
-        assertFails{updateMOTProposal(linearId, 50.POUNDS, b)}
+        assertFails{updateMOTProposal(linearId, 50.GBP, b)}
     }
 
     @Test
     fun flowReturnsCorrectlyFormedDuallySignedTransaction(){
         val issueTx = issueProposal(a)
         val linearId = (issueTx.tx.outputs.single().data as MOTProposal).linearId
-        distributeMOTProposal(linearId, 100.POUNDS, a)
+        distributeMOTProposal(linearId, 100.GBP, a)
         agreeMOTProposal(linearId, b)
-        val updateTx = updateMOTProposal(linearId, 50.POUNDS, a)
+        val updateTx = updateMOTProposal(linearId, 50.GBP, a)
         updateTx.verifyRequiredSignatures()
         listOf(a, b).map {
             it.services.validatedTransactions.getTransaction(updateTx.id)
