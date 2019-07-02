@@ -1,12 +1,9 @@
-package com.alice.carapp.test.MOTCopy
+package com.alice.carapp.test
 
-import com.alice.carapp.flows.Insurance.InsuranceAgreeFlow
-import com.alice.carapp.flows.Insurance.InsuranceDistributeFlow
-import com.alice.carapp.flows.Insurance.InsuranceDraftFlow
 import com.alice.carapp.flows.Insurance.InsuranceIssueFlowResponder
 import com.alice.carapp.flows.MOT.MOTIssueFlow
-import com.alice.carapp.flows.MOTCopy.MOTCopyIssueFlow
 import com.alice.carapp.flows.MOTProposal.*
+import com.alice.carapp.flows.PublishStateFlow
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
 import com.r3.corda.lib.tokens.money.FiatCurrency
@@ -14,8 +11,6 @@ import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.CordaX500Name
-import net.corda.core.internal.packageName
-import net.corda.core.node.services.queryBy
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 
@@ -33,7 +28,7 @@ import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class MOTCopyIssueTest {
+class PublishStateTest {
     private lateinit var mockNetwork: MockNetwork
     private lateinit var a: StartedMockNode
     private lateinit var b: StartedMockNode
@@ -121,21 +116,21 @@ class MOTCopyIssueTest {
     @Test
     fun noMOTtoCopy() {
         val mot = MOT(date1, date3, "loc",   a.info.legalIdentities.first(),vehicle1, b.info.legalIdentities.first(), true)
-        assertFailsWith<IllegalArgumentException> { runFlow(MOTCopyIssueFlow(mot), b) }
+        assertFailsWith<IllegalArgumentException> { runFlow(PublishStateFlow(mot), b) }
     }
 
     @Test
     fun testerIssue() {
         val tx = getIssuedMOT(a, b, a, b, date1, date3)
         val mot = tx.tx.outputsOfType<MOT>().single()
-        assertFailsWith<IllegalArgumentException> { runFlow(MOTCopyIssueFlow(mot), b) }
+        assertFailsWith<IllegalArgumentException> { runFlow(PublishStateFlow(mot), b) }
     }
 
     @Test
     fun healthCheck() {
         val itx = getIssuedMOT(a, b, a, b, date1, date3)
         val mot = itx.tx.outputsOfType<MOT>().single()
-        val tx = runFlow(MOTCopyIssueFlow(mot), a)
+        val tx = runFlow(PublishStateFlow(mot), a)
         tx.verifyRequiredSignatures()
         listOf(a, b).map {
             it.services.validatedTransactions.getTransaction(tx.id)

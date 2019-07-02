@@ -1,5 +1,6 @@
 package com.alice.carapp.contracts
 
+import com.alice.carapp.helper.PublishedState
 import com.alice.carapp.states.*
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
@@ -43,8 +44,12 @@ class TAXContract: Contract {
 
 
                     //MOT & Insurance check
-                    "There should be one MOTCopy as input." using (tx.inputsOfType<MOTCopy>().size == 1)
-                    val mot = tx.inputsOfType<MOTCopy>().single().mot
+                    val published = tx.inputsOfType<PublishedState<OwnableState>>()
+                    val motlist = published.filter { it.data is MOT }
+                    val insurancelist = published.filter { it.data is Insurance }
+                    "There should be one MOT published as input." using (motlist.size == 1)
+
+                    val mot = motlist.single().data as MOT
                     "This MOT should have positive result." using (mot.result)
                     "This MOT and TAX should be issued on same vehicle." using (mot.vehicle == tax.vehicle)
                     "This MOT and TAX should be aligned on same owner." using (mot.owner == tax.owner)
@@ -53,13 +58,13 @@ class TAXContract: Contract {
                     "This MOT should be tested within past one year." using (testDate.isAfter(oneYearBefore))
                     "This MOT expiry date should be after the expiry date of TAX." using (mot.expiryDate.after(tax.expiryDate))
 
-                    "There should be one InsuranceCopy as input." using (tx.inputsOfType<InsuranceCopy>().size == 1)
-                    val insurance = tx.inputsOfType<InsuranceCopy>().single()
-                    "This Insurance should be in Issued status." using (insurance.insurance.status == StatusEnum.ISSUED)
-                    "This Insurance should be issued on same vehicle." using (insurance.insurance.vehicle == tax.vehicle)
-                    "This Insurance should be issued on same owner." using (insurance.insurance.insured == tax.owner)
-                    "This Insurance should have an effective date that is before TAX effective date." using (insurance.insurance.effectiveDate.before(tax.effectiveDate))
-                    "This insurance should have an expiry date that is after TAX expiry date." using (insurance.insurance.expiryDate.after(tax.expiryDate))
+                    "There should be one InsuranceCopy as input." using (insurancelist.size == 1)
+                    val insurance = insurancelist.single().data as Insurance
+                    "This Insurance should be in Issued status." using (insurance.status == StatusEnum.ISSUED)
+                    "This Insurance should be issued on same vehicle." using (insurance.vehicle == tax.vehicle)
+                    "This Insurance should be issued on same owner." using (insurance.insured == tax.owner)
+                    "This Insurance should have an effective date that is before TAX effective date." using (insurance.effectiveDate.before(tax.effectiveDate))
+                    "This insurance should have an expiry date that is after TAX expiry date." using (insurance.expiryDate.after(tax.expiryDate))
                 }
             }
             is Commands.Update -> {

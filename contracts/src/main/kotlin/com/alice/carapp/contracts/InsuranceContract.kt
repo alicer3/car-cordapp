@@ -1,8 +1,9 @@
 package com.alice.carapp.contracts
 
+import com.alice.carapp.helper.PublishedState
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
-import com.alice.carapp.states.MOTCopy
+//import com.alice.carapp.states.MOTCopy
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
@@ -26,7 +27,7 @@ class InsuranceContract: Contract {
 
     override fun verify(tx: LedgerTransaction) {
         val commands = tx.commandsOfType<Commands>()
-        if (commands.isEmpty()) throw IllegalArgumentException("At least one MOTContract Command should be involved.")
+        if (commands.isEmpty()) throw IllegalArgumentException("At least one Insurance Command should be involved.")
         val command = commands.first()
         val timeWindow: TimeWindow? = tx.timeWindow
 
@@ -104,8 +105,10 @@ class InsuranceContract: Contract {
                     "Insurance should be consistent except for the status." using (insurance.copy(status = StatusEnum.ISSUED) == insuranceIssued)
                     "Both garage and owner should sign." using (command.signers.contains(insurance.insurancer.owningKey) && command.signers.contains(insurance.insured.owningKey))
 
-                    "There should be one MOTCopy as input." using (tx.inputsOfType<MOTCopy>().size == 1)
-                    val mot = tx.inputsOfType<MOTCopy>().single().mot
+//                    "There should be one MOTCopy as input." using (tx.inputsOfType<MOTCopy>().size == 1)
+//                    val mot = tx.inputsOfType<MOTCopy>().single().mot
+                    "There should be one published MOT as input." using (tx.inputsOfType<PublishedState<MOT>>().size == 1)
+                    val mot = tx.inputsOfType<PublishedState<MOT>>().single().data
                     "This MOT should have positive result." using (mot.result)
                     "This MOT and insurance should be issued on same vehicle." using (mot.vehicle == insurance.vehicle)
                     "This MOT and insurance should be aligned on same owner." using (mot.owner == insurance.insured)

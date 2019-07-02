@@ -2,8 +2,11 @@ package com.alice.carapp.flows.TAX
 
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.TAXContract
-import com.alice.carapp.flows.InsuranceCopy.InsuranceCopyIssueFlow
-import com.alice.carapp.flows.MOTCopy.MOTCopyIssueFlow
+//import com.alice.carapp.flows.InsuranceCopy.InsuranceCopyIssueFlow
+//import com.alice.carapp.flows.MOTCopy.MOTCopyIssueFlow
+import com.alice.carapp.flows.PublishStateFlow
+import com.alice.carapp.helper.PublishedState
+import com.alice.carapp.helper.PublishedStateContract
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
@@ -42,14 +45,14 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
         val mot = findMOT(tax.vehicle)
         if (mot == null) throw IllegalArgumentException("No MOT found for this vehicle.")
 
-        val mcptx = subFlow(MOTCopyIssueFlow(mot.state.data))
-        val motCopy = mcptx.tx.outRefsOfType<MOTCopy>().single()
+        val mcptx = subFlow(PublishStateFlow(mot.state.data))
+        val motCopy = mcptx.tx.outRefsOfType<PublishedState<MOT>>().single()
 
         // search insurance
         val insurance = findInsurance(tax.vehicle)
         if(insurance == null) throw IllegalArgumentException("No Insurance found for this vehicle.")
-        val icptx = subFlow(InsuranceCopyIssueFlow(insurance.state.data))
-        val insuranceCopy = icptx.tx.outRefsOfType<InsuranceCopy>().single()
+        val icptx = subFlow(PublishStateFlow(insurance.state.data))
+        val insuranceCopy = icptx.tx.outRefsOfType<PublishedState<Insurance>>().single()
 
         val cashBalance = serviceHub.vaultService.tokenBalance(TAX.price.token)
         if(cashBalance < TAX.price) throw IllegalArgumentException("Not enough cash to pay for Tax!")
@@ -65,9 +68,10 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
 
 
         val command = Command(TAXContract.Commands.Issue(), tax.participants.map { it.owningKey })
+        val command2 = Command(PublishedStateContract.Commands.Consume(), listOf(motCopy.state.data.data.owner.owningKey, insuranceCopy.state.data.data.owner.owningKey))
         tx.addInputState(motCopy).addInputState(insuranceCopy)
                 .addOutputState(tax, TAXContract.ID)
-                .addCommand(command)
+                .addCommand(command).addCommand(command2)
         tx.verify(serviceHub)
         val keys = (cashKeys.toSet() + ourIdentity.owningKey).toSet()
         val partedSignedTx = serviceHub.signInitialTransaction(tx, keys)

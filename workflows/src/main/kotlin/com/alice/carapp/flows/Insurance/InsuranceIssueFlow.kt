@@ -2,11 +2,12 @@ package com.alice.carapp.flows.Insurance
 
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.InsuranceContract
-import com.alice.carapp.flows.MOTCopy.MOTCopyIssueFlow
+import com.alice.carapp.flows.PublishStateFlow
+import com.alice.carapp.helper.PublishedState
+import com.alice.carapp.helper.PublishedStateContract
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
-import com.alice.carapp.states.MOTCopy
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.money.GBP
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
@@ -15,7 +16,6 @@ import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
-import net.corda.core.identity.PartyAndCertificate
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
@@ -72,8 +72,8 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
         val mot = findMOT(receivedInsurance.state.data.vehicle)
         if (mot == null) throw IllegalArgumentException("No MOT found for this vehicle.")
 
-        val mcptx = subFlow(MOTCopyIssueFlow(mot.state.data))
-        val motCopy = mcptx.tx.outRefsOfType<MOTCopy>().single()
+        val mcptx = subFlow(PublishStateFlow(mot.state.data))
+        val motCopy = mcptx.tx.outRefsOfType<PublishedState<MOT>>().single()
 
         val cashBalance = serviceHub.vaultService.tokenBalance(GBP)
         if(cashBalance < receivedInsurance.state.data.price) throw IllegalArgumentException("Not enough cash to pay for insurance!")
@@ -84,9 +84,11 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
         val tx = TransactionBuilder(notary)
         //val (tx, cashKeys) = CashUtils.generateSpend(serviceHub, ptx, receivedInsurance.state.data.price, ourIdentityAndCert, receivedInsurance.state.data.insurancer)
         val command = Command(InsuranceContract.Commands.Issue(), receivedInsurance.state.data.participants.map { it.owningKey })
+        val command2 = Command(PublishedStateContract.Commands.Consume(), motCopy.state.data.data.owner.owningKey)
         tx.addInputState(receivedInsurance).addInputState(motCopy)//.addReferenceState(ReferencedStateAndRef(motCopy))
                 .addOutputState(receivedInsurance.state.data.copy(status = StatusEnum.ISSUED), InsuranceContract.ID)
                 .addCommand(command)
+                .addCommand(command2)
         addMoveTokens(tx, receivedInsurance.state.data.price, receivedInsurance.state.data.insurancer, ourIdentity)
         tx.verify(serviceHub)
 
