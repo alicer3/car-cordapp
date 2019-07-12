@@ -10,7 +10,9 @@ import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.money.GBP
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
+import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
 import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
@@ -89,7 +91,8 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
                 .addOutputState(receivedInsurance.state.data.copy(status = StatusEnum.ISSUED), InsuranceContract.ID)
                 .addCommand(command)
                 .addCommand(command2)
-        addMoveTokens(tx, receivedInsurance.state.data.price, receivedInsurance.state.data.insurancer, ourIdentity)
+        addMoveFungibleTokens(tx, serviceHub, listOf(PartyAndAmount(receivedInsurance.state.data.insurancer, receivedInsurance.state.data.price)), ourIdentity)
+        //addMoveTokens(tx, receivedInsurance.state.data.price, receivedInsurance.state.data.insurancer, ourIdentity)
         tx.verify(serviceHub)
 
         val keys = tx.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)

@@ -1,7 +1,7 @@
 buildscript {
     ext {
         corda_release_group = 'net.corda'
-        corda_release_version = '4.0'
+        corda_release_version = '4.1'
         corda_gradle_plugins_version = '4.0.42'
         kotlin_version = '1.2.71'
         junit_version = '4.12'
@@ -11,7 +11,7 @@ buildscript {
         slf4j_version = '1.7.25'
         log4j_version = '2.11.2'
         corda_platform_version = '4'
-        tokens_release_version = '1.0-RC03'
+        tokens_release_version = '1.0'
         tokens_release_group = 'com.r3.corda.lib.tokens'
     }
 
@@ -19,7 +19,8 @@ buildscript {
         mavenLocal()
         mavenCentral()
         jcenter()
-        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda' }
+        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib-dev/' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda/' }
     }
 
     dependencies {
@@ -38,9 +39,12 @@ allprojects {
         mavenLocal()
         jcenter()
         mavenCentral()
-        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases' }
+        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda' }
         maven { url 'https://jitpack.io' }
-        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-tokens-dev' }
+        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-tokens-dev' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib/' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib-dev/' }
     }
 
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {

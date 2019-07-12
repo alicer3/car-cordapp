@@ -26,9 +26,9 @@ class TAXContract: Contract {
         when (command.value) {
             is Commands.Issue -> {
                 //val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
+                val inputs_cash = tx.inputsOfType<FungibleToken>()
                 val outputs_tax = tx.outputsOfType<TAX>()
-                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
+                val outputs_cash = tx.outputsOfType<FungibleToken>()
 
 
                 requireThat {
@@ -44,7 +44,7 @@ class TAXContract: Contract {
 
 
                     //MOT & Insurance check
-                    val published = tx.inputsOfType<PublishedState<OwnableState>>()
+                    val published = tx.inputsOfType<PublishedState<*>>()
                     val motlist = published.filter { it.data is MOT }
                     val insurancelist = published.filter { it.data is Insurance }
                     "There should be one MOT published as input." using (motlist.size == 1)

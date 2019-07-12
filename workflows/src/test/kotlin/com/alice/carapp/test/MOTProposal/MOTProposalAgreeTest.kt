@@ -7,6 +7,7 @@ import com.alice.carapp.flows.MOTProposal.MOTProposalIssueFlowResponder
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
@@ -59,7 +60,7 @@ class MOTProposalAgreeTest {
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(tx: SignedTransaction, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(tx: SignedTransaction, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
         val output = tx.tx.outputs.single().data as MOTProposal
         val flow = MOTProposalDistributeFlow(output.linearId, newPrice)
         val future = ap.startFlow(flow)

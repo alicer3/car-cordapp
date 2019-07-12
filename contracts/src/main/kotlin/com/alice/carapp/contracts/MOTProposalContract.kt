@@ -86,9 +86,9 @@ class MOTProposalContract: Contract {
             }
             is Commands.Pay -> {
                 val inputs_proposal = tx.inputsOfType<MOTProposal>()
-                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
+                val inputs_cash = tx.inputsOfType<FungibleToken>()
                 val outputs_proposal = tx.outputsOfType<MOTProposal>()
-                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
+                val outputs_cash = tx.outputsOfType<FungibleToken>()
                 requireThat {
                     "There should be one Agreed MOTProposal as input." using (inputs_proposal.single().status == StatusEnum.AGREED)
                     val proposal = inputs_proposal.single()

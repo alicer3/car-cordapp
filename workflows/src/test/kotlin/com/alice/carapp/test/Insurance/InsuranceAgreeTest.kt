@@ -4,6 +4,7 @@ import com.alice.carapp.flows.Insurance.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
@@ -65,7 +66,7 @@ class InsuranceAgreeTest {
         return runFlow(flow, ap)
     }
 
-    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<FiatCurrency>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
+    fun distributeInsurance(tx: SignedTransaction, newPrice: Amount<TokenType>, date1: Date, date2: Date, cov: String, ap: StartedMockNode): SignedTransaction {
         val output = tx.tx.outputs.single().data as Insurance
         val flow = InsuranceDistributeFlow(output.linearId, newPrice, cov, date1, date2)
         return runFlow(flow, ap)

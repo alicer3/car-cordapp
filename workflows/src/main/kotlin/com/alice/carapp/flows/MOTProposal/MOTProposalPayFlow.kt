@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.MOTProposalContract
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.heldBy
 import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
 import com.r3.corda.lib.tokens.contracts.utilities.of
@@ -11,7 +12,7 @@ import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlow
 import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlowHandler
-//import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
 import com.r3.corda.lib.tokens.workflows.flows.rpc.IssueTokens
 
@@ -74,8 +75,8 @@ class MOTProposalPayFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
         val cashBalance = serviceHub.vaultService.tokenBalance(input.price.token)
         if(cashBalance < input.price) throw IllegalArgumentException("Owner has only $cashBalance but needs ${input.price} to pay.")
 
-        addMoveTokens(txBuilder, input.price, input.tester, ourIdentity)
-        //addMoveFungibleTokens(txBuilder, serviceHub, input.price, input.tester, ourIdentity)
+        //addMoveTokens(txBuilder, input.price, input.tester, ourIdentity)
+        addMoveFungibleTokens(txBuilder, serviceHub, input.price, input.tester, ourIdentity)
 
 
         val command = Command(MOTProposalContract.Commands.Pay(), input.participants.map { it.owningKey })
@@ -118,7 +119,7 @@ class MOTProposalPayFlowResponder(private val flowSession: FlowSession) : FlowLo
  */
 @InitiatingFlow
 @StartableByRPC
-class SelfIssueCashFlow(val amount: Amount<FiatCurrency>, val receiver: Party) : FlowLogic<Unit>() {
+class SelfIssueCashFlow(val amount: Amount<TokenType>, val receiver: Party) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
 

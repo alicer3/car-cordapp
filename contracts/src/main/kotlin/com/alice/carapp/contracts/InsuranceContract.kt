@@ -86,9 +86,9 @@ class InsuranceContract: Contract {
             }
             is Commands.Issue -> {
                 val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<FungibleToken<FiatCurrency>>()
+                val inputs_cash = tx.inputsOfType<FungibleToken>()
                 val outputs_insurance = tx.outputsOfType<Insurance>()
-                val outputs_cash = tx.outputsOfType<FungibleToken<FiatCurrency>>()
+                val outputs_cash = tx.outputsOfType<FungibleToken>()
 
 
 

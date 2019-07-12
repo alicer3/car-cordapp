@@ -6,6 +6,7 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.flows.PublishStateFlow
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
@@ -100,7 +101,7 @@ class PublishStateTest {
     }
 
 
-    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode): Unit {
+    private fun issueCash(amount: Amount<TokenType>, ap: StartedMockNode): Unit {
         val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()

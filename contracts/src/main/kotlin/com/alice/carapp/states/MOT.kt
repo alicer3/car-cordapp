@@ -14,13 +14,9 @@ data class MOT(val testDate: Date,
           val locOfTest: String,
           val tester: Party,
           var vehicle: Vehicle,
-          override val owner: Party,
+          val owner: Party,
           val result: Boolean,
-               override val linearId: UniqueIdentifier = UniqueIdentifier()): ContractState, LinearState, OwnableState {
+               override val linearId: UniqueIdentifier = UniqueIdentifier()): ContractState, LinearState{
     override val participants get() = listOf(tester, owner)
     constructor(proposal: MOTProposal, testDate: Date, expiryDate: Date, locOfTest: String, result: Boolean): this(testDate, expiryDate, locOfTest, proposal.tester, proposal.vehicle, proposal.owner, result)
-
-    override fun withNewOwner(newOwner: AbstractParty): CommandAndState {
-        return CommandAndState(MOTContract.Commands.Update(), copy(owner = newOwner as Party))
-    }
 }

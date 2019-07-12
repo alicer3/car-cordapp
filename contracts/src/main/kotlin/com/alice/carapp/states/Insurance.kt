@@ -2,6 +2,7 @@ package com.alice.carapp.states
 
 import com.alice.carapp.contracts.InsuranceContract
 import com.alice.carapp.helper.Vehicle
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.*
 import net.corda.core.identity.AbstractParty
@@ -12,17 +13,12 @@ import java.util.*
 data class Insurance(val insurancer: Party,
                      val insured: Party,
                      val vehicle: Vehicle,
-                     val price: Amount<FiatCurrency>,
+                     val price: Amount<TokenType>,
                      val coverage: String,
                      val effectiveDate: Date,
                      val expiryDate: Date,
                      val actionParty: Party,
                      val status: StatusEnum,
-                     override val owner: AbstractParty = insured,
-                     override val linearId: UniqueIdentifier = UniqueIdentifier()): ContractState, LinearState, OwnableState {
+                     override val linearId: UniqueIdentifier = UniqueIdentifier()): ContractState, LinearState {
     override val participants get() = listOf(insurancer, insured)
-    override fun withNewOwner(newOwner: AbstractParty): CommandAndState {
-        return CommandAndState(InsuranceContract.Commands.Update(), copy(owner = newOwner as Party))
-    }
-    //constructor(proposal: MOTProposal, testDate: Date, expiryDate: Date, locOfTest: String, result: Boolean): this(testDate, expiryDate, locOfTest, proposal.tester, proposal.vehicle, proposal.owner, result) {}
 }

@@ -4,6 +4,7 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
@@ -57,7 +58,7 @@ class MOTProposalUpdateTest {
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalDistributeFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -79,7 +80,7 @@ class MOTProposalUpdateTest {
 
     }
 
-    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
+    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalUpdateFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()

@@ -9,6 +9,7 @@ import com.alice.carapp.helper.PublishedState
 import com.alice.carapp.helper.PublishedStateContract
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.*
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
 import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
@@ -62,13 +63,13 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
         val tx = TransactionBuilder(notary)
 
-
-        addMoveTokens(tx, TAX.price, tax.LTA, ourIdentity)
+        addMoveFungibleTokens(tx, serviceHub, TAX.price, tax.LTA, ourIdentity)
+        //addMoveTokens(tx, TAX.price, tax.LTA, ourIdentity)
         val cashKeys = tx.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)
 
 
         val command = Command(TAXContract.Commands.Issue(), tax.participants.map { it.owningKey })
-        val command2 = Command(PublishedStateContract.Commands.Consume(), listOf(motCopy.state.data.data.owner.owningKey, insuranceCopy.state.data.data.owner.owningKey))
+        val command2 = Command(PublishedStateContract.Commands.Consume(), listOf(motCopy.state.data.owner.owningKey, insuranceCopy.state.data.owner.owningKey))
         tx.addInputState(motCopy).addInputState(insuranceCopy)
                 .addOutputState(tax, TAXContract.ID)
                 .addCommand(command).addCommand(command2)

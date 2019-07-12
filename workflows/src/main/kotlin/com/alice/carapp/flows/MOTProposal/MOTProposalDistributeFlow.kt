@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.MOTProposalContract
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
@@ -20,7 +21,7 @@ import java.util.*
 
 @InitiatingFlow
 @StartableByRPC
-class MOTProposalDistributeFlow(val linearId: UniqueIdentifier, val newAmount: Amount<FiatCurrency>) : FlowLogic<SignedTransaction>() {
+class MOTProposalDistributeFlow(val linearId: UniqueIdentifier, val newAmount: Amount<TokenType>) : FlowLogic<SignedTransaction>() {
 
     /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
     override val progressTracker = ProgressTracker()

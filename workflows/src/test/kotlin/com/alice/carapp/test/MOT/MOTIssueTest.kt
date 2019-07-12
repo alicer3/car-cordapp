@@ -7,14 +7,17 @@ import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
 import net.corda.core.contracts.Amount
+import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.packageName
+import net.corda.core.node.services.queryBy
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.MockNetwork
@@ -83,7 +86,7 @@ class MOTIssueTest {
     }
 
 
-    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode): Unit {
+    private fun issueCash(amount: Amount<TokenType>, ap: StartedMockNode): Unit {
         val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()

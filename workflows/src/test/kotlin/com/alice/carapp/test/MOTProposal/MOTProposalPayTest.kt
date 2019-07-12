@@ -4,6 +4,7 @@ import com.alice.carapp.flows.MOTProposal.*
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.heldBy
 import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
 import com.r3.corda.lib.tokens.money.FiatCurrency
@@ -69,7 +70,7 @@ class MOTProposalPayTest {
         return future.getOrThrow()
     }
 
-    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
+    fun distributeMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalDistributeFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -91,7 +92,7 @@ class MOTProposalPayTest {
 
     }
 
-    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<FiatCurrency>, ap: StartedMockNode): SignedTransaction {
+    fun updateMOTProposal(linearId: UniqueIdentifier, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
         val flow = MOTProposalUpdateFlow(linearId, newPrice)
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -105,7 +106,7 @@ class MOTProposalPayTest {
         return future.getOrThrow()
     }
 
-    private fun issueCash(amount: Amount<FiatCurrency>, ap: StartedMockNode) {
+    private fun issueCash(amount: Amount<TokenType>, ap: StartedMockNode) {
         val flow = SelfIssueCashFlow(amount, ap.info.legalIdentities.first())
         val future = ap.startFlow(flow)
         mockNetwork.runNetwork()
@@ -174,6 +175,12 @@ class MOTProposalPayTest {
             println("$txHash == ${tx.id}")
             assertEquals(tx.id, txHash)
         }
+    }
+
+    @Test
+    fun cashCheck() {
+        issueCash(100.GBP, a)
+        issueCash(120.GBP, b)
     }
 
 }
