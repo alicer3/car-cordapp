@@ -9,9 +9,9 @@ import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
 import com.r3.corda.lib.tokens.contracts.utilities.of
 import com.r3.corda.lib.tokens.money.FiatCurrency
 import com.r3.corda.lib.tokens.money.GBP
-import com.r3.corda.lib.tokens.workflows.flows.evolvable.UpdateEvolvableToken
 import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlow
 import com.r3.corda.lib.tokens.workflows.flows.issue.IssueTokensFlowHandler
+//import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
 import com.r3.corda.lib.tokens.workflows.flows.rpc.IssueTokens
 
@@ -75,6 +75,8 @@ class MOTProposalPayFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
         if(cashBalance < input.price) throw IllegalArgumentException("Owner has only $cashBalance but needs ${input.price} to pay.")
 
         addMoveTokens(txBuilder, input.price, input.tester, ourIdentity)
+        //addMoveFungibleTokens(txBuilder, serviceHub, input.price, input.tester, ourIdentity)
+
 
         val command = Command(MOTProposalContract.Commands.Pay(), input.participants.map { it.owningKey })
         txBuilder.addInputState(stateAndRef)
@@ -122,8 +124,9 @@ class SelfIssueCashFlow(val amount: Amount<FiatCurrency>, val receiver: Party) :
 
         val token = amount issuedBy ourIdentity heldBy receiver
 
-        val flows = token.participants.map{ party -> initiateFlow(party as Party) }
-        val flow = IssueTokensFlow(token, flows, emptyList())
+        //val flows = token.participants.map{ party -> initiateFlow(party as Party) }
+        val session = initiateFlow(receiver)
+        val flow = IssueTokensFlow(token, listOf(session), listOf())
 
         subFlow(flow)
     }

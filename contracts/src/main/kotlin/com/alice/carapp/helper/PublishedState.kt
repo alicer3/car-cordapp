@@ -1,14 +1,16 @@
 package com.alice.carapp.helper
 
 import net.corda.core.contracts.*
+import net.corda.core.identity.Party
 import net.corda.core.transactions.LedgerTransaction
 
 
 @BelongsToContract(PublishedStateContract::class)
-data class PublishedState<T: OwnableState>(
-        val data: T
+data class PublishedState<T: ContractState>(
+        val data: T,
+        val owner: Party
 ): ContractState {
-    override val participants get() = listOf(data.owner)
+    override val participants get() = listOf(owner)
 }
 
 class PublishedStateContract: Contract {
@@ -45,7 +47,7 @@ class PublishedStateContract: Contract {
                 requireThat {
                     "There should be no published state as outputs." using output.isEmpty()
                     "There should be at least one published state as input." using input.isNotEmpty()
-                    "Owner of all published state should sign." using (input.all { command.signers.contains(it.data.owner.owningKey) })
+                    "Owner of all published state should sign." using (input.all { command.signers.contains(it.owner.owningKey) })
                 }
             }
         }

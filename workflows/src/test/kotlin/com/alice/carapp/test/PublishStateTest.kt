@@ -119,12 +119,6 @@ class PublishStateTest {
         assertFailsWith<IllegalArgumentException> { runFlow(PublishStateFlow(mot), b) }
     }
 
-    @Test
-    fun testerIssue() {
-        val tx = getIssuedMOT(a, b, a, b, date1, date3)
-        val mot = tx.tx.outputsOfType<MOT>().single()
-        assertFailsWith<IllegalArgumentException> { runFlow(PublishStateFlow(mot), b) }
-    }
 
     @Test
     fun healthCheck() {
