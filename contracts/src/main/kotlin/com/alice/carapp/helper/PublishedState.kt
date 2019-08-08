@@ -33,11 +33,12 @@ class PublishedStateContract: Contract {
                     "All participants should sign." using (command.signers.containsAll((output.single().data.participants.map { it.owningKey })))
                 }
             }
-            is Commands.Cancel -> {
+            is Commands.Revoke -> {
                 val inputs = tx.inputs
                 val outputs = tx.outputs
                 requireThat {
-                    "There should be only one PublishedState as input." using (inputs.single().state.data is PublishedState<*>)
+                    "There should only be PublishedState as input." using (inputs.all {it.state.data is PublishedState<*>})
+                    "All inputs should be PublishedState from same source." using (inputs.map { (it.state.data as PublishedState<*>).data }.toSet().size == 1)
                     "There should be no output." using (outputs.isEmpty())
                 }
             }
@@ -56,6 +57,6 @@ class PublishedStateContract: Contract {
     interface Commands: CommandData {
         class Issue: Commands
         class Consume: Commands
-        class Cancel: Commands
+        class Revoke: Commands
     }
 }

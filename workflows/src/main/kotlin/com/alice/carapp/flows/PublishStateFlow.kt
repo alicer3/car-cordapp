@@ -6,26 +6,35 @@ import com.alice.carapp.helper.PublishedStateContract
 import com.r3.corda.lib.tokens.workflows.utilities.toParty
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
+import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import java.lang.IllegalArgumentException
+import javax.jws.WebParam
 
 @InitiatingFlow
-//@StartableByRPC
-class PublishStateFlow<T: ContractState>(val state: T) : FlowLogic<SignedTransaction>() {
+class PublishStateFlow<T: ContractState>(val state: T, private val mode: ModeEnum = ModeEnum.NEWISSUE) : FlowLogic<StateAndRef<PublishedState<T>>>() {
 
     /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
     override val progressTracker = ProgressTracker()
 
     /** The flow logic is encapsulated within the call() method. */
     @Suspendable
-    override fun call(): SignedTransaction {
+    override fun call(): StateAndRef<PublishedState<T>> {
+        return when(mode){
+            ModeEnum.NEWISSUE -> issueNew()
+            ModeEnum.REUSE -> reuse()
+        }
+    }
+
+    @Suspendable
+    private fun issueNew(): StateAndRef<PublishedState<T>> {
         val published = PublishedState(state, ourIdentity)
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
         if(!findState(this, state, state.javaClass)) throw IllegalArgumentException("There is no such state in vault.")
-        //if(ourIdentity != state.owner)  throw IllegalArgumentException("Only the owner of the MOT could issue MOTCopy.")
+
         // We create the transaction components.
         val command = Command(PublishedStateContract.Commands.Issue(), state.participants.map { it.owningKey })
 
@@ -42,8 +51,30 @@ class PublishStateFlow<T: ContractState>(val state: T) : FlowLogic<SignedTransac
         val targetSession = (state.participants - ourIdentity).map { initiateFlow(it.toParty(serviceHub)) }
         val stx = subFlow(CollectSignaturesFlow(signedTx, targetSession))
         // Finalising the transaction.
-        return subFlow(FinalityFlow(stx, targetSession))
+        return subFlow(FinalityFlow(stx, targetSession)).tx.outRef(0)
     }
+
+    @Suspendable
+    private fun reuse(): StateAndRef<PublishedState<T>> = found()?: issueNew()
+
+    private fun found(): StateAndRef<PublishedState<T>>?{
+        val results = serviceHub.vaultService.queryBy(PublishedState::class.java).states
+        val filtered = results.filter {
+            it.state.data.data == state && it.state.data.owner == ourIdentity
+        }
+
+        if(filtered.isNotEmpty())
+            return filtered.first() as StateAndRef<PublishedState<T>>
+
+        return null
+    }
+
+}
+
+@CordaSerializable
+enum class ModeEnum {
+    NEWISSUE,
+    REUSE
 }
 
 @InitiatedBy(PublishStateFlow::class)
@@ -72,3 +103,6 @@ private fun <T: ContractState> findState(flow: FlowLogic<Any>, state: T, clazz: 
     }
 
 }
+
+
+

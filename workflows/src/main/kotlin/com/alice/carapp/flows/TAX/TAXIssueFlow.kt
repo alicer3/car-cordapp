@@ -46,14 +46,12 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
         val mot = findMOT(tax.vehicle)
         if (mot == null) throw IllegalArgumentException("No MOT found for this vehicle.")
 
-        val mcptx = subFlow(PublishStateFlow(mot.state.data))
-        val motCopy = mcptx.tx.outRefsOfType<PublishedState<MOT>>().single()
+        val motCopy = subFlow(PublishStateFlow(mot.state.data))
 
         // search insurance
         val insurance = findInsurance(tax.vehicle)
         if(insurance == null) throw IllegalArgumentException("No Insurance found for this vehicle.")
-        val icptx = subFlow(PublishStateFlow(insurance.state.data))
-        val insuranceCopy = icptx.tx.outRefsOfType<PublishedState<Insurance>>().single()
+        val insuranceCopy = subFlow(PublishStateFlow(insurance.state.data))
 
         val cashBalance = serviceHub.vaultService.tokenBalance(TAX.price.token)
         if(cashBalance < TAX.price) throw IllegalArgumentException("Not enough cash to pay for Tax!")
@@ -92,7 +90,7 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
             it.state.data.vehicle == vehicle && it.state.data.result && it.state.data.owner == ourIdentity
         }
         if (filtered.isNotEmpty()) {
-            val sorted = filtered.sortedBy { it.state.data.expiryDate }
+            val sorted = filtered.sortedByDescending { it.state.data.expiryDate }
             return sorted.first()
         }else
             return null
@@ -105,7 +103,7 @@ class TAXIssueFlow(val tax: TAX) : FlowLogic<SignedTransaction>() {
             it.state.data.vehicle == vehicle && it.state.data.status == StatusEnum.ISSUED && it.state.data.insured == ourIdentity
         }
         if (filtered.isNotEmpty()) {
-            val sorted = filtered.sortedBy { it.state.data.expiryDate }
+            val sorted = filtered.sortedByDescending { it.state.data.expiryDate }
             return sorted.first()
         }else
             return null

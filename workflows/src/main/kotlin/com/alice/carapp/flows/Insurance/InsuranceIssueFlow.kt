@@ -74,8 +74,7 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
         val mot = findMOT(receivedInsurance.state.data.vehicle)
         if (mot == null) throw IllegalArgumentException("No MOT found for this vehicle.")
 
-        val mcptx = subFlow(PublishStateFlow(mot.state.data))
-        val motCopy = mcptx.tx.outRefsOfType<PublishedState<MOT>>().single()
+        val motCopy = subFlow(PublishStateFlow(mot.state.data))
 
         val cashBalance = serviceHub.vaultService.tokenBalance(GBP)
         if(cashBalance < receivedInsurance.state.data.price) throw IllegalArgumentException("Not enough cash to pay for insurance!")
@@ -112,7 +111,7 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
             it.state.data.vehicle == vehicle && it.state.data.result && it.state.data.owner == ourIdentity
         }
         if (filtered.isNotEmpty()) {
-            val sorted = filtered.sortedBy { it.state.data.expiryDate }
+            val sorted = filtered.sortedByDescending { it.state.data.expiryDate }
             return sorted.first()
         }else
             return null
