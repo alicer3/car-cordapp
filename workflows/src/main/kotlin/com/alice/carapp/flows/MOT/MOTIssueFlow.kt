@@ -7,36 +7,32 @@ import com.alice.carapp.contracts.MOTProposalContract
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTProposal
 import net.corda.core.contracts.Command
-import net.corda.core.contracts.Requirements.using
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
-import java.util.Date
+import java.util.*
 
 @InitiatingFlow
 @StartableByRPC
 class MOTIssueFlow(val linearId: UniqueIdentifier, val testDate: Date, val expiryDate: Date, val loc: String, val result: Boolean) : FlowLogic<SignedTransaction>() {
 
-    /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
-    override val progressTracker = ProgressTracker()
-
-    /** The flow logic is encapsulated within the call() method. */
     @Suspendable
     override fun call(): SignedTransaction {
+        // Retrieve MOTProposal by linearId
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
         val input = stateAndRef.state.data
+
+        // Construct MOT output
         val mot = MOT(testDate = testDate, expiryDate = expiryDate, locOfTest = loc, proposal = input, result = result)
+
+        // Get notary
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
-        if(ourIdentity != input.tester) throw IllegalArgumentException("Only tester could initiate MOT issue flow.")
-
+        if (ourIdentity != input.tester) throw IllegalArgumentException("Only tester could initiate MOT issue flow.")
 
         // We create the transaction components.
         val command = Command(MOTContract.Commands.Issue(), ourIdentity.owningKey)
@@ -56,6 +52,7 @@ class MOTIssueFlow(val linearId: UniqueIdentifier, val testDate: Date, val expir
         val signedTx = serviceHub.signInitialTransaction(txBuilder)
         val targetSession = (input.participants - ourIdentity).map { initiateFlow(it) }
         val stx = subFlow(CollectSignaturesFlow(signedTx, targetSession))
+
         // Finalising the transaction.
         return subFlow(FinalityFlow(stx, targetSession))
     }
@@ -66,9 +63,7 @@ class MOTIssueFlowResponder(private val flowSession: FlowSession) : FlowLogic<Un
     @Suspendable
     override fun call() {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) {
-
-            }
+            override fun checkTransaction(stx: SignedTransaction) {}
         }
 
         val txWeJustSignedId = subFlow(signedTransactionFlow)

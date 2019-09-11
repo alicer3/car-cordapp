@@ -1,11 +1,10 @@
 package com.alice.carapp.states
 
+
 import com.alice.carapp.contracts.InsuranceContract
 import com.alice.carapp.helper.Vehicle
 import com.r3.corda.lib.tokens.contracts.types.TokenType
-import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.*
-import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import java.util.*
 
@@ -19,6 +18,6 @@ data class Insurance(val insurancer: Party,
                      val expiryDate: Date,
                      val actionParty: Party,
                      val status: StatusEnum,
-                     override val linearId: UniqueIdentifier = UniqueIdentifier()): ContractState, LinearState {
+                     override val linearId: UniqueIdentifier = UniqueIdentifier()) : ContractState, LinearState {
     override val participants get() = listOf(insurancer, insured)
 }

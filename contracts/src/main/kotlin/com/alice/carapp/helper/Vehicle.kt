@@ -9,7 +9,10 @@ data class Vehicle(val id: Long,
                    val model: String,
                    val category: String,
                    val mileage: Int) {
-    fun isFilled(): Boolean{
-        return !this.javaClass.declaredFields.any{ javaClass.getDeclaredField(it.name) == null }
+    fun isFilled(): Boolean {
+        return !this.javaClass.declaredFields.any { javaClass.getDeclaredField(it.name) == null }
     }
 }
+
+
+

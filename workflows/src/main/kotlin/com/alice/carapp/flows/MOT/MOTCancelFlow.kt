@@ -2,6 +2,7 @@ package com.alice.carapp.flows.MOT
 
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.MOTContract
+import com.alice.carapp.flows.RevokePublishedStateFlow
 import com.alice.carapp.states.MOT
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.UniqueIdentifier
@@ -10,26 +11,22 @@ import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 
 @InitiatingFlow
 @StartableByRPC
 class MOTCancelFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTransaction>() {
 
-    /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
-    override val progressTracker = ProgressTracker()
-
-    /** The flow logic is encapsulated within the call() method. */
     @Suspendable
     override fun call(): SignedTransaction {
+        // Retrieve MOT by linearId
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<MOT>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<MOT>(queryCriteria).states.single()
         val input = stateAndRef.state.data
+
         // We retrieve the notary identity from the network map.
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
-        if(ourIdentity != input.tester) throw IllegalArgumentException("Only tester could initiate MOT cancel flow.")
+        if (ourIdentity != input.tester) throw IllegalArgumentException("Only tester could initiate MOT cancel flow.")
 
         // We create the transaction components.
         val command = Command(MOTContract.Commands.Cancel(), ourIdentity.owningKey)
@@ -45,6 +42,10 @@ class MOTCancelFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTransactio
         // Signing the transaction.
         val signedTx = serviceHub.signInitialTransaction(txBuilder)
         val targetSession = (input.participants - ourIdentity).map { initiateFlow(it) }
+
+        //revoke PublishedStates
+        subFlow(RevokePublishedStateFlow(input))
+
         // Finalising the transaction.
         return subFlow(FinalityFlow(signedTx, targetSession))
     }

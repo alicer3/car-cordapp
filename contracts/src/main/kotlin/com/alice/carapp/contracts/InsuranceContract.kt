@@ -3,24 +3,18 @@ package com.alice.carapp.contracts
 import com.alice.carapp.helper.PublishedState
 import com.alice.carapp.states.Insurance
 import com.alice.carapp.states.MOT
-//import com.alice.carapp.states.MOTCopy
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
-import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.Requirements.using
-import net.corda.core.contracts.TimeWindow
 import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
-import java.lang.IllegalArgumentException
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.util.*
 
-class InsuranceContract: Contract {
+class InsuranceContract : Contract {
     companion object {
         const val ID = "com.alice.carapp.contracts.InsuranceContract"
     }
@@ -29,20 +23,22 @@ class InsuranceContract: Contract {
         val commands = tx.commandsOfType<Commands>()
         if (commands.isEmpty()) throw IllegalArgumentException("At least one Insurance Command should be involved.")
         val command = commands.first()
-        val timeWindow: TimeWindow? = tx.timeWindow
 
-        if (tx.outputsOfType<Insurance>().size == 1){
+        // common constraints on Insurance
+        if (tx.outputsOfType<Insurance>().size == 1) { // when the command is not cancel
             val output = tx.outputsOfType<Insurance>().single()
             requireThat {
                 "The price could not be negative." using (output.price.quantity > 0)
                 "The expiry date should be later than effective date." using (output.expiryDate.after(output.effectiveDate))
             }
         }
+
+        // command specific constraints
         when (command.value) {
             is Commands.Draft -> {
                 requireThat {
                     "No inputs should be consumed when drafting an Insurance." using tx.inputs.isEmpty()
-                    "There should be one output state of Insurance." using (tx.outputs.size == 1 && tx.outputsOfType<Insurance>().size == 1)
+                    "There should only be one output state of Insurance." using (tx.outputs.size == 1 && tx.outputsOfType<Insurance>().size == 1)
                     val output = tx.outputsOfType<Insurance>().single()
                     "The information about vehicle should be complete." using output.vehicle.isFilled()
                     "The status of output should be DRAFT" using (output.status == StatusEnum.DRAFT)
@@ -85,28 +81,26 @@ class InsuranceContract: Contract {
                 }
             }
             is Commands.Issue -> {
-                val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<FungibleToken>()
-                val outputs_insurance = tx.outputsOfType<Insurance>()
-                val outputs_cash = tx.outputsOfType<FungibleToken>()
+                val inputsInsurance = tx.inputsOfType<Insurance>()
+                val inputsCash = tx.inputsOfType<FungibleToken>()
+                val outputsInsurance = tx.outputsOfType<Insurance>()
+                val outputsCash = tx.outputsOfType<FungibleToken>()
 
 
 
                 requireThat {
-                    "There should be one Agreed Insurance as input." using (inputs_insurance.single().status == StatusEnum.AGREED)
-                    val insurance = inputs_insurance.single()
-                    "There should be cash as input." using (inputs_cash.isNotEmpty())
-                    "There should be one ISSUED Insurance as output." using (outputs_insurance.single().status == StatusEnum.ISSUED)
-                    val insuranceIssued = outputs_insurance.single()
-                    "The owner of input cash should be the vehicle owner in Insurance." using (inputs_cash.all { it.holder == insurance.insured })
-
-                    "The amount of output cash that goes to insurancer should be equal to price on insurance." using (outputs_cash.filter { it.holder == insurance.insurancer }.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == insurance.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity)
+                    "There should be one Agreed Insurance as input." using (inputsInsurance.single().status == StatusEnum.AGREED)
+                    val insurance = inputsInsurance.single()
+                    "There should be cash as input." using (inputsCash.isNotEmpty())
+                    "There should be one ISSUED Insurance as output." using (outputsInsurance.single().status == StatusEnum.ISSUED)
+                    val insuranceIssued = outputsInsurance.single()
+                    "The owner of input cash should be the vehicle owner in Insurance." using (inputsCash.all { it.holder == insurance.insured })
+                    "The amount of output cash that goes to insurancer should be equal to price on insurance." using (outputsCash.filter { it.holder == insurance.insurancer }.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity == insurance.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity == outputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity)
                     "Insurance should be consistent except for the status." using (insurance.copy(status = StatusEnum.ISSUED) == insuranceIssued)
-                    "Both garage and owner should sign." using (command.signers.contains(insurance.insurancer.owningKey) && command.signers.contains(insurance.insured.owningKey))
+                    "Both insurancer and insured should sign." using (command.signers.contains(insurance.insurancer.owningKey) && command.signers.contains(insurance.insured.owningKey))
 
-//                    "There should be one MOTCopy as input." using (tx.inputsOfType<MOTCopy>().size == 1)
-//                    val mot = tx.inputsOfType<MOTCopy>().single().mot
+                    // requirement on Published MOT
                     "There should be one published MOT as input." using (tx.inputsOfType<PublishedState<MOT>>().size == 1)
                     val mot = tx.inputsOfType<PublishedState<MOT>>().single().data
                     "This MOT should have positive result." using (mot.result)
@@ -145,12 +139,12 @@ class InsuranceContract: Contract {
     }
 
     interface Commands : CommandData {
-        class Draft: Commands
-        class Distribute: Commands
-        class Agree: Commands
-        class Reject: Commands // later
-        class Issue: Commands
-        class Update: Commands //later
-        class Cancel: Commands //later
+        class Draft : Commands
+        class Distribute : Commands
+        class Agree : Commands
+        class Reject : Commands // to be implemented
+        class Issue : Commands
+        class Update : Commands
+        class Cancel : Commands
     }
 }

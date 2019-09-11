@@ -19,7 +19,6 @@ buildscript {
         mavenLocal()
         mavenCentral()
         jcenter()
-        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib-dev/' }
         maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda/' }
     }
 
@@ -39,10 +38,8 @@ allprojects {
         mavenLocal()
         jcenter()
         mavenCentral()
-        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases' }
         maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda' }
         maven { url 'https://jitpack.io' }
-        //maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-tokens-dev' }
         maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib/' }
         maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib-dev/' }
     }
@@ -116,7 +113,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
     }
     node {
         name "O=Notary,L=London,C=GB"
-        notary = [validating : false]
+        notary = [validating: false]
         p2pPort 10002
         rpcSettings {
             address("localhost:10003")
@@ -124,31 +121,31 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         }
     }
     node {
-        name "O=PartyA,L=London,C=GB"
+        name "O=Owner,L=London,C=GB"
         p2pPort 10005
         rpcSettings {
             address("localhost:10006")
             adminAddress("localhost:10046")
         }
-        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
-        name "O=PartyB,L=New York,C=US"
+        name "O=Garage,L=New York,C=US"
         p2pPort 10008
         rpcSettings {
             address("localhost:10009")
             adminAddress("localhost:10049")
         }
-        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
-        name "O=PartyC,L=New York,C=US"
+        name "O=Insurancer,L=New York,C=US"
         p2pPort 10011
         rpcSettings {
             address("localhost:10012")
             adminAddress("localhost:10052")
         }
-        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
         name "O=LTA,L=New York,C=US"
@@ -157,7 +154,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
             address("localhost:10015")
             adminAddress("localhost:10055")
         }
-        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
 }
 

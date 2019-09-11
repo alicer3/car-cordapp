@@ -12,29 +12,26 @@ import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 
 @InitiatingFlow
 @StartableByRPC
 class MOTProposalAgreeFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTransaction>() {
 
-    /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
-    override val progressTracker = ProgressTracker()
-
-    /** The flow logic is encapsulated within the call() method. */
     @Suspendable
     override fun call(): SignedTransaction {
+
+        // Retrieving the MOTProposal by linearId
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
         val input = stateAndRef.state.data
+
         // We retrieve the notary identity from the network map.
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
         // We create the transaction components.
         val command = Command(MOTProposalContract.Commands.Agree(), input.participants.map { it.owningKey })
 
-        if(input.actionParty != ourIdentity) throw IllegalArgumentException("Only the action party is authorized to initiate Agree Flow.")
+        if (input.actionParty != ourIdentity) throw IllegalArgumentException("Only the action party is authorized to initiate Agree Flow.")
 
         // We create a transaction builder and add the components.
         val txBuilder = TransactionBuilder(notary = notary)
@@ -49,6 +46,7 @@ class MOTProposalAgreeFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTra
         val signedTx = serviceHub.signInitialTransaction(txBuilder)
         val targetSession = (input.participants - ourIdentity).map { initiateFlow(it) }
         val stx = subFlow(CollectSignaturesFlow(signedTx, targetSession))
+
         // Finalising the transaction.
         return subFlow(FinalityFlow(stx, targetSession))
     }
@@ -62,7 +60,7 @@ class MOTProposalAgreeFlowResponder(private val flowSession: FlowSession) : Flow
             override fun checkTransaction(stx: SignedTransaction) {
                 val output = stx.tx.outputs.first().data as MOTProposal
                 val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(output.linearId))
-                val stateAndRef =  serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
+                val stateAndRef = serviceHub.vaultService.queryBy<MOTProposal>(queryCriteria).states.single()
                 val proposalInVault = stateAndRef.state.data
                 requireThat {
                     "The received proposal is the same as latest in Vault." using (output == proposalInVault.copy(status = output.status))

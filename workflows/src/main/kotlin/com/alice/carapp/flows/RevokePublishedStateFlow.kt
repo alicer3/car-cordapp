@@ -8,16 +8,12 @@ import net.corda.core.contracts.Command
 import net.corda.core.contracts.ContractState
 import net.corda.core.flows.*
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 
+@StartableByRPC
 @InitiatingFlow
 class RevokePublishedStateFlow(val state: ContractState) : FlowLogic<Unit>() {
 
-    /** The progress tracker provides checkpoints indicating the progress of the flow to observers. */
-    override val progressTracker = ProgressTracker()
-
-    /** The flow logic is encapsulated within the call() method. */
     @Suspendable
     override fun call() {
 
@@ -41,7 +37,7 @@ class RevokePublishedStateFlowResponder(private val flowSession: FlowSession) : 
     }
 }
 
-class SelfRevokePublishedStateFlow(val state: ContractState): FlowLogic<Unit>() {
+class SelfRevokePublishedStateFlow(val state: ContractState) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
 
@@ -50,7 +46,7 @@ class SelfRevokePublishedStateFlow(val state: ContractState): FlowLogic<Unit>() 
                     it.state.data.data == state && it.state.data.owner == ourIdentity
                 }
 
-        if(psOwnedByMe.isEmpty()) return
+        if (psOwnedByMe.isEmpty()) return
 
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
         val command = Command(PublishedStateContract.Commands.Revoke(), ourIdentity.owningKey)

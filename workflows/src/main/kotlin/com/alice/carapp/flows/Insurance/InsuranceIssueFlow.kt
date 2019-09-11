@@ -3,7 +3,6 @@ package com.alice.carapp.flows.Insurance
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.InsuranceContract
 import com.alice.carapp.flows.PublishStateFlow
-import com.alice.carapp.helper.PublishedState
 import com.alice.carapp.helper.PublishedStateContract
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.Insurance
@@ -11,19 +10,19 @@ import com.alice.carapp.states.MOT
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.money.GBP
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
-import com.r3.corda.lib.tokens.workflows.flows.move.addMoveTokens
 import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
 import com.r3.corda.lib.tokens.workflows.utilities.ourSigningKeys
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
 import net.corda.confidential.IdentitySyncFlow
-import net.corda.core.contracts.*
+import net.corda.core.contracts.Command
+import net.corda.core.contracts.StateAndRef
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.*
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 
 
 @InitiatingFlow
@@ -37,10 +36,10 @@ class InsuranceIssueFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
     @Suspendable
     override fun call(): SignedTransaction {
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
         val input = stateAndRef.state.data
 
-        if(ourIdentity != input.insurancer)
+        if (ourIdentity != input.insurancer)
             throw IllegalArgumentException("Only the insurancer could initiate the issue flow.")
 
         val targetSession = initiateFlow(input.insured)
@@ -77,7 +76,7 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
         val motCopy = subFlow(PublishStateFlow(mot.state.data))
 
         val cashBalance = serviceHub.vaultService.tokenBalance(GBP)
-        if(cashBalance < receivedInsurance.state.data.price) throw IllegalArgumentException("Not enough cash to pay for insurance!")
+        if (cashBalance < receivedInsurance.state.data.price) throw IllegalArgumentException("Not enough cash to pay for insurance!")
 
 
         // build transaction and sign
@@ -91,7 +90,7 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
                 .addCommand(command)
                 .addCommand(command2)
         addMoveFungibleTokens(tx, serviceHub, listOf(PartyAndAmount(receivedInsurance.state.data.insurancer, receivedInsurance.state.data.price)), ourIdentity)
-        //addMoveTokens(tx, receivedInsurance.state.data.price, receivedInsurance.state.data.insurancer, ourIdentity)
+
         tx.verify(serviceHub)
 
         val keys = tx.toLedgerTransaction(serviceHub).ourSigningKeys(serviceHub)
@@ -106,14 +105,14 @@ class InsuranceIssueFlowResponder(private val flowSession: FlowSession) : FlowLo
     }
 
     private fun findMOT(vehicle: Vehicle): StateAndRef<MOT>? {
-        val results =  serviceHub.vaultService.queryBy<MOT>().states
+        val results = serviceHub.vaultService.queryBy<MOT>().states
         val filtered = results.filter {
             it.state.data.vehicle == vehicle && it.state.data.result && it.state.data.owner == ourIdentity
         }
         if (filtered.isNotEmpty()) {
             val sorted = filtered.sortedByDescending { it.state.data.expiryDate }
             return sorted.first()
-        }else
+        } else
             return null
 
     }

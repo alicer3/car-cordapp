@@ -5,18 +5,19 @@ import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
-import com.r3.corda.lib.tokens.money.FiatCurrency
-import net.corda.core.contracts.*
+import net.corda.core.contracts.CommandData
+import net.corda.core.contracts.Contract
+import net.corda.core.contracts.requireSingleCommand
+import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
 
-class MOTProposalContract: Contract {
+class MOTProposalContract : Contract {
     companion object {
         const val ID = "com.alice.carapp.contracts.MOTProposalContract"
     }
+
     override fun verify(tx: LedgerTransaction) {
-        //if (tx.commands.single().value is MOTContract.Commands.Issue) return
         val command = tx.commands.requireSingleCommand<Commands>()
-        val timeWindow: TimeWindow? = tx.timeWindow
 
         when (command.value) {
             is Commands.Draft -> {
@@ -60,7 +61,6 @@ class MOTProposalContract: Contract {
                     val output = tx.outputsOfType<MOTProposal>().single()
                     "Nothing should be changed during the agreement except for status." using (input.copy(status = output.status) == output)
                     "The input status should be PENDING and the output status should be REJECTED." using (input.status == StatusEnum.PENDING && output.status == StatusEnum.REJECTED)
-                    //"Both garage and owner should sign." using (command.signers.contains(input.owner.owningKey) && command.signers.contains(input.tester.owningKey))
                 }
             }
             is Commands.Update -> {
@@ -85,19 +85,19 @@ class MOTProposalContract: Contract {
                 }
             }
             is Commands.Pay -> {
-                val inputs_proposal = tx.inputsOfType<MOTProposal>()
-                val inputs_cash = tx.inputsOfType<FungibleToken>()
-                val outputs_proposal = tx.outputsOfType<MOTProposal>()
-                val outputs_cash = tx.outputsOfType<FungibleToken>()
+                val inputsProposal = tx.inputsOfType<MOTProposal>()
+                val inputsCash = tx.inputsOfType<FungibleToken>()
+                val outputsProposal = tx.outputsOfType<MOTProposal>()
+                val outputsCash = tx.outputsOfType<FungibleToken>()
                 requireThat {
-                    "There should be one Agreed MOTProposal as input." using (inputs_proposal.single().status == StatusEnum.AGREED)
-                    val proposal = inputs_proposal.single()
-                    "There should be cash as input." using (inputs_cash.isNotEmpty())
-                    "There should be one Paid MOTProposal as output." using (outputs_proposal.single().status == StatusEnum.PAID)
-                    val proposalPaid = outputs_proposal.single()
-                    "The owner of input cash should be the vehicle owner in MOTProposal." using (inputs_cash.all { it.holder == proposal.owner })
-                    "The amount of output cash that goes to tester should be equal to price on proposal." using (outputs_cash.filter { it.holder == proposal.tester }.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == proposal.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity)
+                    "There should be one Agreed MOTProposal as input." using (inputsProposal.single().status == StatusEnum.AGREED)
+                    val proposal = inputsProposal.single()
+                    "There should be cash as input." using (inputsCash.isNotEmpty())
+                    "There should be one Paid MOTProposal as output." using (outputsProposal.single().status == StatusEnum.PAID)
+                    val proposalPaid = outputsProposal.single()
+                    "The owner of input cash should be the vehicle owner in MOTProposal." using (inputsCash.all { it.holder == proposal.owner })
+                    "The amount of output cash that goes to tester should be equal to price on proposal." using (outputsCash.filter { it.holder == proposal.tester }.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity == proposal.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity == outputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity)
                     "MOTProposal should be consistent except for the status." using (proposal.copy(status = StatusEnum.PAID) == proposalPaid)
                     "Both garage and owner should sign." using (command.signers.contains(proposal.owner.owningKey) && command.signers.contains(proposal.tester.owningKey))
 
@@ -115,14 +115,14 @@ class MOTProposalContract: Contract {
         }
     }
 
-    interface Commands: CommandData {
-        class Draft: Commands
-        class Distribute: Commands
-        class Agree: Commands
-        class Reject: Commands
-        class Update: Commands
-        class Cancel: Commands
-        class Pay: Commands
-        class Consume: Commands
+    interface Commands : CommandData {
+        class Draft : Commands
+        class Distribute : Commands
+        class Agree : Commands
+        class Reject : Commands
+        class Update : Commands
+        class Cancel : Commands
+        class Pay : Commands
+        class Consume : Commands
     }
 }

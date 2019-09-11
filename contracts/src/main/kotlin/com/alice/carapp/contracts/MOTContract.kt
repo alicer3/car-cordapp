@@ -3,12 +3,13 @@ package com.alice.carapp.contracts
 import com.alice.carapp.states.MOT
 import com.alice.carapp.states.MOTProposal
 import com.alice.carapp.states.StatusEnum
-import net.corda.core.contracts.*
+import net.corda.core.contracts.CommandData
+import net.corda.core.contracts.Contract
+import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
-import java.lang.IllegalArgumentException
 import java.util.*
 
-class MOTContract: Contract {
+class MOTContract : Contract {
     companion object {
         const val ID = "com.alice.carapp.contracts.MOTContract"
     }
@@ -16,18 +17,17 @@ class MOTContract: Contract {
     override fun verify(tx: LedgerTransaction) {
         val commands = tx.commandsOfType<Commands>()
         if (commands.isEmpty()) throw IllegalArgumentException("At least one MOTContract Command should be involved.")
-        val command = commands.first()
-        val timeWindow: TimeWindow? = tx.timeWindow
+        val command = commands.single()
 
         when (command.value) {
             is Commands.Issue -> {
-                val inputs_proposal = tx.inputsOfType<MOTProposal>()
-                val outputs_mot = tx.outputsOfType<MOT>()
+                val inputsProposal = tx.inputsOfType<MOTProposal>()
+                val outputsMot = tx.outputsOfType<MOT>()
                 requireThat {
-                    "There should be one Paid MOTProposal as input." using (inputs_proposal.single().status == StatusEnum.PAID)
-                    val proposal = inputs_proposal.single()
-                    "There should be one MOT as output." using (outputs_mot.size == 1)
-                    val mot = outputs_mot.single()
+                    "There should be one Paid MOTProposal as input." using (inputsProposal.single().status == StatusEnum.PAID)
+                    val proposal = inputsProposal.single()
+                    "There should be one MOT as output." using (outputsMot.size == 1)
+                    val mot = outputsMot.single()
                     val now = Date()
                     "The owner, tester and vehicle in MOT should be aligned with MOTProposal." using (proposal.tester == mot.tester && proposal.owner == mot.owner && proposal.vehicle == mot.vehicle)
                     "The test date should be in the past and the expiry date should be in future." using (mot.testDate.before(now) && mot.expiryDate.after(now))
@@ -57,9 +57,9 @@ class MOTContract: Contract {
         }
     }
 
-    interface Commands: CommandData {
-        class Issue: Commands
-        class Update: Commands
-        class Cancel: Commands
+    interface Commands : CommandData {
+        class Issue : Commands
+        class Update : Commands
+        class Cancel : Commands
     }
 }

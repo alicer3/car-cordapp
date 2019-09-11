@@ -13,7 +13,6 @@ import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 
 @InitiatingFlow
 @StartableByRPC
@@ -26,7 +25,7 @@ class InsuranceAgreeFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
     @Suspendable
     override fun call(): SignedTransaction {
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
         val input = stateAndRef.state.data
         // We retrieve the notary identity from the network map.
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
@@ -34,7 +33,7 @@ class InsuranceAgreeFlow(val linearId: UniqueIdentifier) : FlowLogic<SignedTrans
         // We create the transaction components.
         val command = Command(InsuranceContract.Commands.Agree(), input.participants.map { it.owningKey })
 
-        if(input.actionParty != ourIdentity) throw IllegalArgumentException("Only the action party is authorized to initiate Agree Flow.")
+        if (input.actionParty != ourIdentity) throw IllegalArgumentException("Only the action party is authorized to initiate Agree Flow.")
 
         // We create a transaction builder and add the components.
         val txBuilder = TransactionBuilder(notary = notary)

@@ -8,7 +8,6 @@ import net.corda.core.flows.*
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 
 @InitiatingFlow
 @StartableByRPC
@@ -26,7 +25,7 @@ class InsuranceDraftFlow(val draft: Insurance) : FlowLogic<SignedTransaction>() 
         // We create the transaction components.
         val command = Command(InsuranceContract.Commands.Draft(), listOf(ourIdentity.owningKey))
 
-        if(draft.actionParty != ourIdentity) throw IllegalArgumentException("The action party should be drafter himself, so that he could distribute the proposal later.")
+        if (draft.actionParty != ourIdentity) throw IllegalArgumentException("The action party should be drafter himself, so that he could distribute the proposal later.")
 
         // We create a transaction builder and add the components.
         val txBuilder = TransactionBuilder(notary = notary)

@@ -3,13 +3,10 @@ package com.alice.carapp.flows.Insurance
 import co.paralleluniverse.fibers.Suspendable
 import com.alice.carapp.contracts.InsuranceContract
 import com.alice.carapp.states.Insurance
-
 import com.alice.carapp.states.StatusEnum
 import com.r3.corda.lib.tokens.contracts.types.TokenType
-import com.r3.corda.lib.tokens.money.FiatCurrency
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
-import net.corda.core.contracts.Requirements.using
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
@@ -18,7 +15,6 @@ import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import java.lang.IllegalArgumentException
 import java.util.*
 
 @InitiatingFlow
@@ -32,7 +28,7 @@ class InsuranceDistributeFlow(val linearId: UniqueIdentifier, val price: Amount<
     @Suspendable
     override fun call(): SignedTransaction {
         val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
-        val stateAndRef =  serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
+        val stateAndRef = serviceHub.vaultService.queryBy<Insurance>(queryCriteria).states.single()
         val input = stateAndRef.state.data
 
         if (input.actionParty != ourIdentity) throw IllegalArgumentException("Only the action party could initiate distribute flow now.")
@@ -68,7 +64,7 @@ class InsuranceDistributeFlowResponder(private val flowSession: FlowSession) : F
     @Suspendable
     override fun call(): SignedTransaction {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) = requireThat{
+            override fun checkTransaction(stx: SignedTransaction) = requireThat {
                 val output = stx.tx.outputs.single().data
                 "Output should be Insurance." using (output is Insurance)
                 val proposal = output as Insurance

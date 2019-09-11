@@ -1,18 +1,21 @@
 package com.alice.carapp.contracts
 
 import com.alice.carapp.helper.PublishedState
-import com.alice.carapp.states.*
+import com.alice.carapp.states.Insurance
+import com.alice.carapp.states.MOT
+import com.alice.carapp.states.StatusEnum
+import com.alice.carapp.states.TAX
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.sumTokenStatesOrZero
-import com.r3.corda.lib.tokens.money.FiatCurrency
-import net.corda.core.contracts.*
+import net.corda.core.contracts.CommandData
+import net.corda.core.contracts.Contract
+import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
-import java.lang.IllegalArgumentException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
 
-class TAXContract: Contract {
+class TAXContract : Contract {
     companion object {
         const val ID = "com.alice.carapp.contracts.TAXContract"
     }
@@ -21,22 +24,19 @@ class TAXContract: Contract {
         val commands = tx.commandsOfType<Commands>()
         if (commands.isEmpty()) throw IllegalArgumentException("At least one TAXContract Command should be involved.")
         val command = commands.first()
-        val timeWindow: TimeWindow? = tx.timeWindow
 
         when (command.value) {
             is Commands.Issue -> {
-                //val inputs_insurance = tx.inputsOfType<Insurance>()
-                val inputs_cash = tx.inputsOfType<FungibleToken>()
-                val outputs_tax = tx.outputsOfType<TAX>()
-                val outputs_cash = tx.outputsOfType<FungibleToken>()
-
+                val inputsCash = tx.inputsOfType<FungibleToken>()
+                val outputsTax = tx.outputsOfType<TAX>()
+                val outputsCash = tx.outputsOfType<FungibleToken>()
 
                 requireThat {
-                    "There should be one TAX as outout." using (outputs_tax.size == 1)
-                    val tax = outputs_tax.single()
-                    "The owner of input cash should be the vehicle owner in TAX." using (inputs_cash.all { it.holder == tax.owner })
-                    "The amount of output cash that goes to LTA should be equal to price on TAX." using (outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType).quantity == TAX.price.quantity)
-                    "The cash input from owner and output amount should be the same. " using (inputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType) == outputs_cash.sumTokenStatesOrZero(outputs_cash.first().issuedTokenType))
+                    "There should be one TAX as output." using (outputsTax.size == 1)
+                    val tax = outputsTax.single()
+                    "The owner of input cash should be the vehicle owner in TAX." using (inputsCash.all { it.holder == tax.owner })
+                    "The amount of output cash that goes to LTA should be equal to price on TAX." using (outputsCash.filter { it.holder == tax.LTA }.sumTokenStatesOrZero(outputsCash.first().issuedTokenType).quantity == TAX.price.quantity)
+                    "The cash input from owner and output amount should be the same. " using (inputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType) == outputsCash.sumTokenStatesOrZero(outputsCash.first().issuedTokenType))
                     val now = Date()
                     "The effective date should be either today or future and the expiry date should be in future." using (!tax.effectiveDate.before(now) && tax.expiryDate.after(now))
                     "The effective date should be earlier than expiry date." using (tax.effectiveDate.before(tax.expiryDate))
@@ -91,9 +91,9 @@ class TAXContract: Contract {
         }
     }
 
-    interface Commands: CommandData {
-        class Issue: Commands
-        class Update: Commands
-        class Cancel: Commands
+    interface Commands : CommandData {
+        class Issue : Commands
+        class Update : Commands
+        class Cancel : Commands
     }
 }

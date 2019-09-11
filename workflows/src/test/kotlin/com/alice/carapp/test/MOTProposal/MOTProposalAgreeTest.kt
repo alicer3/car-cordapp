@@ -1,37 +1,25 @@
-package com.alice.carapp.test.MOTProposal
+package com.alice.carapp.test.motproposal
 
 import com.alice.carapp.flows.MOTProposal.MOTProposalAgreeFlow
-import com.alice.carapp.flows.MOTProposal.MOTProposalDistributeFlow
-import com.alice.carapp.flows.MOTProposal.MOTProposalIssueFlow
 import com.alice.carapp.flows.MOTProposal.MOTProposalIssueFlowResponder
 import com.alice.carapp.helper.Vehicle
 import com.alice.carapp.states.MOTProposal
-import com.alice.carapp.states.StatusEnum
-import com.r3.corda.lib.tokens.contracts.types.TokenType
-import com.r3.corda.lib.tokens.money.FiatCurrency
-import com.r3.corda.lib.tokens.money.GBP
-import net.corda.core.contracts.Amount
+import com.alice.carapp.test.BaseTest
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.utilities.getOrThrow
-
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
 import net.corda.testing.node.StartedMockNode
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import java.lang.IllegalArgumentException
-import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class MOTProposalAgreeTest {
-    private lateinit var mockNetwork: MockNetwork
+class MOTProposalAgreeTest : BaseTest() {
     private lateinit var a: StartedMockNode
     private lateinit var b: StartedMockNode
-    private lateinit var vehicle: Vehicle
 
     @Before
     fun setup() {
@@ -52,30 +40,6 @@ class MOTProposalAgreeTest {
         mockNetwork.stopNodes()
     }
 
-    fun issueProposal(ap: StartedMockNode): SignedTransaction {
-        val proposal = MOTProposal(a.info.legalIdentities.first(), b.info.legalIdentities.first(), vehicle, 100.GBP, StatusEnum.DRAFT, ap.info.legalIdentities.first())
-        val flow = MOTProposalIssueFlow(proposal)
-        val future = ap.startFlow(flow)
-        mockNetwork.runNetwork()
-        return future.getOrThrow()
-    }
-
-    fun distributeMOTProposal(tx: SignedTransaction, newPrice: Amount<TokenType>, ap: StartedMockNode): SignedTransaction {
-        val output = tx.tx.outputs.single().data as MOTProposal
-        val flow = MOTProposalDistributeFlow(output.linearId, newPrice)
-        val future = ap.startFlow(flow)
-        mockNetwork.runNetwork()
-        return future.getOrThrow()
-    }
-
-    fun agreeMOTProposal(tx: SignedTransaction, ap: StartedMockNode): SignedTransaction {
-        val output = tx.tx.outputs.single().data as MOTProposal
-        val flow = MOTProposalAgreeFlow(output.linearId)
-        val future = ap.startFlow(flow)
-        mockNetwork.runNetwork()
-        return future.getOrThrow()
-    }
-
     /* the wrong party who started AgreeFlow
         a issue MOTProposal
         a distribute MOTProposal
@@ -83,9 +47,10 @@ class MOTProposalAgreeTest {
      */
     @Test
     fun testWrongActionParty() {
-        val issueTx = issueProposal(a)
-        val distributeTx = distributeMOTProposal(issueTx, 100.GBP, a)
-        assertFailsWith<IllegalArgumentException> {agreeMOTProposal(distributeTx, a)}
+        val dtx = getDistributedProposal(a, b, a)
+        val output = dtx.tx.outputs.single().data as MOTProposal
+        val flow = MOTProposalAgreeFlow(output.linearId)
+        assertFailsWith<IllegalArgumentException> { runFlow(flow, a) }
 
     }
 
@@ -96,17 +61,17 @@ class MOTProposalAgreeTest {
      */
     @Test
     fun testInputStatus() {
-        val issueTx = issueProposal(a)
-        assertFailsWith<TransactionVerificationException> {agreeMOTProposal(issueTx, a)}
+        val itx = getIssuedProposal(a, b, a)
+        val output = itx.tx.outputs.single().data as MOTProposal
+        val flow = MOTProposalAgreeFlow(output.linearId)
+        assertFailsWith<TransactionVerificationException> { runFlow(flow, a) }
     }
 
 
     // health check
     @Test
     fun flowReturnsTransactionSignedByAllPartiesAndCheckVaults() {
-        val itx = issueProposal(a)
-        val dtx = distributeMOTProposal(itx, 100.GBP, a)
-        val atx = agreeMOTProposal(dtx, b)
+        val atx = getAgreedProposal(a, b, a, b)
         atx.verifyRequiredSignatures()
         println("Signed transaction hash: ${atx.id}")
         listOf(a, b).map {
